@@ -45,4 +45,28 @@ or require the user to input something specific to that vehicle or PIN code etc.
 2. Generate an API key and add your preferred redirect URI
 3. Create your Connection License. In the future this will be in the dev console but for now provide your ClientID to your developer relations person at DIMO.
 4. Obtain the required Synthetic Device Minting roles - engineers at DIMO will do this for you.
-5. 
+5. Create an Account Abstracted wallet with zerodev, we'll call this the Developer AA Wallet - engineers at DIMO can do this for you.
+6. Fund your Developer AA Wallet with some DCX. You can do this from the DIMO Dev Console. Required for the minting operations.
+
+## Onboarding
+
+If you look at the go package `internal/onboarding` you'll see an example we've built for this. 
+In general, onboarding in this example codebase happens through a couple API endpoints, and then all the operations are handled
+by a backend job (we use river for the jobs). Jobs are stored in the database. 
+
+THe REST endpoints that handle onboarding are in `internal/app/app.go`. The process of onboarding boils down to:
+- Decoding the vehicle's VIN or whatever identifier is used. The example code uses DIMO Protocol decoder. If your VINs are uncommon to decode, please reach out.
+- Enrolling the vehicle with your backend, whatever way makes sense to you. Basically it tells your external system it's ok for this Oracle app to connect to it. 
+- Minting the Vehicle NFT. This creates the on-chain representation of the vehicle, with the owner set to your logged in wallet 0x. 
+- Minting the Synthetic Device NFT. This represents the connection of the Vehicle NFT to your software connection. Contains your oracle's connection license 0x. 
+- Optionally Sharing & setting Permissions via DIMO SACD. If you know you'll be sharing vehicles you onboard immediately with a customer for example, you can include SACD permissions.
+
+Minting operations above require your Developer AA Wallet address to have DCX balance to pay for the operations. 
+
+### vendor.go file
+
+This implements the onboarding process with your external system. It has a common interface with 2 functions:
+- Validate: used to check if the VIN (or identifier) is compatible with your system. You could imagine this calling out to some endpoint in your system that checks.
+- Connect: actually onboards the VIN (or identifier) into your system so that it knows to allow connections however you with to implement it - Streaming, grpc, kafka, REST etc.
+
+There is an example struct implementation `ExternalOnboardingService` in this file, but feel free to change it up as needed. 
