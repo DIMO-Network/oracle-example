@@ -115,7 +115,6 @@ func main() {
 			settings.UnbufferedTelemetryTopic,
 			settings.UnbufferedTelemetryConsumerGroup,
 			kafka.MessageHandlerUnbuffered{Logger: &logger, OracleService: oracleService},
-			settings.UnbufferedTelemetryPassword,
 		)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Failed to setup consumer for UnbufferedTelemetryTopic")
@@ -131,7 +130,6 @@ func main() {
 			settings.OperationsTopic,
 			settings.OperationsConsumerGroup,
 			kafka.MessageHandlerOperations{Logger: &logger, OracleService: oracleService, EnrollmentChannel: enrollmentChannel},
-			settings.OperationsPassword,
 		)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Failed to setup consumer for OperationsTopic")

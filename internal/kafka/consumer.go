@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"github.com/DIMO-Network/oracle-example/internal/models"
 	"github.com/DIMO-Network/oracle-example/internal/service"
@@ -51,7 +50,6 @@ func SetupKafkaConsumer(
 	topic string,
 	consumerGroupID string,
 	handler sarama.ConsumerGroupHandler,
-	saslPassword string,
 ) error {
 	logger.Info().
 		Strs("brokers", brokerList).
@@ -60,13 +58,13 @@ func SetupKafkaConsumer(
 		Msg("Setting up Sarama Kafka consumer.")
 
 	// Create Sarama consumer group
-	consumer, err := sarama.NewConsumerGroup(brokerList, consumerGroupID, getSaramaConfig(saslPassword))
+	consumer, err := sarama.NewConsumerGroup(brokerList, consumerGroupID, getSaramaConfig())
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to create Sarama consumer group")
 		return err
 	}
 
-	logger.Info().Msgf("Sarama consumer group %s created successfully. ", consumerGroupID)
+	logger.Info().Msgf("Sarama consumer group %s created successfully.", consumerGroupID)
 
 	// Context for consumer
 	go func() {
@@ -96,22 +94,10 @@ func SetupKafkaConsumer(
 	return nil
 }
 
-func getSaramaConfig(saslPassword string) *sarama.Config {
+func getSaramaConfig() *sarama.Config {
 	config := sarama.NewConfig()
 	config.Net.DialTimeout = 10 * time.Second
-
-	config.Net.SASL.Enable = true
-	config.Net.SASL.User = "$ConnectionString"
-	config.Net.SASL.Password = saslPassword
-	config.Net.SASL.Mechanism = "PLAIN"
-
-	config.Net.TLS.Enable = true
-	config.Net.TLS.Config = &tls.Config{
-		InsecureSkipVerify: true,
-		ClientAuth:         0,
-	}
 	config.Version = sarama.V1_0_0_0
-
 	return config
 }
 

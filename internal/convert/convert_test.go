@@ -135,7 +135,7 @@ func TestMapSignals(t *testing.T) {
 	assert.Equal(t, float64(0), signals[0].Value)
 	assert.Equal(t, ts, signals[0].Timestamp)
 
-	assert.Equal(t, "fuelLevel", signals[1].Name)
+	assert.Equal(t, "powertrainFuelSystemRelativeLevel", signals[1].Name)
 	assert.Equal(t, float64(79), signals[1].Value)
 	assert.Equal(t, ts, signals[1].Timestamp)
 

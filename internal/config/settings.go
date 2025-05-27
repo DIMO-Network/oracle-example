@@ -28,12 +28,10 @@ type Settings struct {
 
 	// Kafka - Operations topic - in this example, enrollment status is communicated async via kafka
 	OperationsTopic         string `yaml:"OPERATIONS_TOPIC"`
-	OperationsPassword      string `yaml:"OPERATIONS_PASSWORD"`
 	OperationsConsumerGroup string `yaml:"OPERATIONS_CONSUMER_GROUP"`
 
 	// Kafka - Unbuffered Telemetry topic - in this example, raw vehicle telemetry is streamed via kafka
 	UnbufferedTelemetryTopic         string `yaml:"UNBUFFERED_TELEMETRY_TOPIC"`
-	UnbufferedTelemetryPassword      string `yaml:"UNBUFFERED_TELEMETRY_PASSWORD"`
 	UnbufferedTelemetryConsumerGroup string `yaml:"UNBUFFERED_TELEMETRY_CONSUMER_GROUP"`
 
 	// DIS - DIMO Ingest Service
