@@ -68,7 +68,7 @@ func ParseCloudEvent(msg []byte) (*cloudevent.CloudEvent[json.RawMessage], error
 
 	// Validate the CloudEvent
 	if telemetry.Subject == "" || telemetry.Producer == "" || telemetry.Type == "" {
-		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, subject: %s, producer: %s, type: %s, data: %v", telemetry.Subject, telemetry.Producer, telemetry.Type)
+		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, subject: %s, producer: %s, type: %s", telemetry.Subject, telemetry.Producer, telemetry.Type)
 	}
 
 	return &telemetry, nil
@@ -89,7 +89,7 @@ func CastToUnbufferedMsg(msg []byte) (*models.UnbufferedMessageValue, error) {
 func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	cs.logger.Debug().Msgf("Received message: %s", msg)
 
-	if cs.settings.ConvertToCloudEvent {
+	if !cs.settings.ConvertToCloudEvent {
 		// Attempt to cast the message to a CloudEvent
 		cloudEvent, err := ParseCloudEvent(msg.([]byte))
 
