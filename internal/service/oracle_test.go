@@ -90,6 +90,47 @@ var unbufferedMsg = `{
 		}
 	}`
 
+var validCloudEventMsg = `{
+	  "id": "unique-event-identifier",
+	  "source": "0xConnectionLicenseAddress",
+	  "producer": "did:nft:1:0xbA5738a18d83D41847dfFbDC6101d37C69c9B0cF_42",
+	  "specversion": "1.0",
+	  "subject": "did:nft:1:0x123456789abcdef0123456789abcdef012345678_123",
+	  "time": "2025-03-04T12:00:00Z",
+	  "type": "dimo.status",
+	  "datacontenttype": "application/json",
+	  "dataversion": "default/v1.0",
+	  "data": {
+	    "signals": [
+	      {
+	        "name": "powertrainTransmissionTravelledDistance",
+	        "timestamp": "2025-03-04T12:00:00Z",
+	        "value": 12345.67
+	      }
+	    ],
+	    "vin": "1GGCM82633A123456"
+	  }
+}`
+
+var invalidCloudEventMsg = `{
+	  "id": "unique-event-identifier",
+	  "source": "0xConnectionLicenseAddress",
+	  "specversion": "1.0",
+	  "time": "2025-03-04T12:00:00Z",
+	  "datacontenttype": "application/json",
+	  "dataversion": "default/v1.0",
+	  "data": {
+	    "signals": [
+	      {
+	        "name": "powertrainTransmissionTravelledDistance",
+	        "timestamp": "2025-03-04T12:00:00Z",
+	        "value": 12345.67
+	      }
+	    ],
+	    "vin": "1GGCM82633A123456"
+	  }
+}`
+
 func (s *OracleTestSuite) TestDeviceMinted() {
 	// given
 	server, _ := setupMockServer(s.T())
@@ -104,6 +145,7 @@ func (s *OracleTestSuite) TestDeviceMinted() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
+	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
@@ -132,6 +174,7 @@ func (s *OracleTestSuite) TestDeviceNotFound() {
 
 	oracleService := setupOracleService(server.URL)
 	oracleService.Db = s.cs.Db
+	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 
@@ -154,6 +197,7 @@ func (s *OracleTestSuite) TestDeviceNotMinted() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
+	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
@@ -164,6 +208,56 @@ func (s *OracleTestSuite) TestDeviceNotMinted() {
 
 	// verify
 	require.NoError(s.T(), err)
+}
+
+func (s *OracleTestSuite) TestDeviceSendValidCloudEvent() {
+	// given
+	server, _ := setupMockServer(s.T())
+	defer server.Close()
+
+	oracleService := setupOracleService(server.URL)
+	oracleService.Db = s.cs.Db
+	dbVin := dbmodels.Vin{
+		Vin:              vin,
+		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
+		ConnectionStatus: null.StringFrom("succeeded"),
+	}
+	oracleService.settings.ConvertToCloudEvent = false
+
+	// when
+	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
+
+	// then
+	// should not send msg to DIS but not fail
+	err := oracleService.HandleDeviceByVIN([]byte(validCloudEventMsg))
+
+	// verify
+	require.NoError(s.T(), err)
+}
+
+func (s *OracleTestSuite) TestDeviceSendInvalidCloudEvent() {
+	// given
+	server, _ := setupMockServer(s.T())
+	defer server.Close()
+
+	oracleService := setupOracleService(server.URL)
+	oracleService.Db = s.cs.Db
+	dbVin := dbmodels.Vin{
+		Vin:              vin,
+		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
+		ConnectionStatus: null.StringFrom("succeeded"),
+	}
+	oracleService.settings.ConvertToCloudEvent = false
+
+	// when
+	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
+
+	// then
+	// should not send msg to DIS but not fail
+	err := oracleService.HandleDeviceByVIN([]byte(invalidCloudEventMsg))
+
+	// verify
+	require.Error(s.T(), err)
 }
 
 // Setup code for the mock server
