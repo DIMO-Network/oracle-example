@@ -222,6 +222,7 @@ func (s *OracleTestSuite) TestDeviceSendValidCloudEvent() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
+	oracleService.settings.ConvertToCloudEvent = false
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
@@ -246,6 +247,7 @@ func (s *OracleTestSuite) TestDeviceSendInvalidCloudEvent() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
+	oracleService.settings.ConvertToCloudEvent = false
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
