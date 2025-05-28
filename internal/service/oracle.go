@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/DIMO-Network/cloudevent"
 	"github.com/DIMO-Network/oracle-example/internal/config"
 	"github.com/DIMO-Network/oracle-example/internal/convert"
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
@@ -57,6 +58,22 @@ func NewOracleService(ctx context.Context, logger zerolog.Logger, settings confi
 	return cs, nil
 }
 
+func ParseCloudEvent(msg []byte) (*cloudevent.CloudEvent[json.RawMessage], error) {
+	// Unmarshal into CloudEvent struct
+	var telemetry cloudevent.CloudEvent[json.RawMessage]
+	err := json.Unmarshal(msg, &telemetry)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate the CloudEvent
+	if telemetry.Subject == "" || telemetry.Producer == "" || telemetry.Type == "" {
+		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, subject: %s, producer: %s, type: %s, data: %v", telemetry.Subject, telemetry.Producer, telemetry.Type)
+	}
+
+	return &telemetry, nil
+}
+
 func CastToUnbufferedMsg(msg []byte) (*models.UnbufferedMessageValue, error) {
 
 	// Unmarshal into UnbufferedMessageValue struct
@@ -71,6 +88,21 @@ func CastToUnbufferedMsg(msg []byte) (*models.UnbufferedMessageValue, error) {
 
 func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	cs.logger.Debug().Msgf("Received message: %s", msg)
+
+	if cs.settings.ConvertToCloudEvent {
+		// Attempt to cast the message to a CloudEvent
+		cloudEvent, err := ParseCloudEvent(msg.([]byte))
+
+		if err != nil {
+			// Log the error and return
+			cs.logger.Debug().Err(err).Msg("Failed to parse message as CloudEvent.")
+			return err
+		}
+
+		cs.logger.Debug().Msg("Skipping conversion to CloudEvent as ConvertToCloudEvent is false")
+		return cs.HandleSendToDIS(cloudEvent)
+	}
+
 	unbufferedMsg, err := CastToUnbufferedMsg(msg.([]byte))
 	if err != nil {
 		return err
@@ -104,29 +136,9 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	}
 	vehicle := dBVehicle.(*dbmodels.Vin)
 
-	// TODO might be not needed , we need to test if the dBVehicle send any data if status is not succeeded
 	if vehicle.ConnectionStatus.String != "succeeded" {
 		cs.logger.Debug().Msgf("Device connection status is not succeeded for VIN: %s", vehicle.Vin)
 		return nil
-	}
-
-	// TODO this might be not needed anymore, this was a precaution to check if the dBVehicle is minted
-	if vehicle != nil && vehicle.VehicleTokenID.Int64 != 0 {
-		// try to query identity service
-		cs.logger.Debug().Msgf("trying to query identity service for token %d", vehicle.VehicleTokenID.Int64)
-
-		identityVehicle, err := cs.identityService.GetCachedVehicleByTokenID(uint64(vehicle.VehicleTokenID.Int64))
-		if err != nil {
-			identityVehicle, err = cs.identityService.FetchVehicleByTokenID(uint64(vehicle.VehicleTokenID.Int64))
-		}
-		if err != nil {
-			failedStatusEventCntr.Inc()
-			cs.logger.Error().Err(err).Msg("Error querying identity service")
-			return err
-		}
-		if identityVehicle == nil {
-			return fmt.Errorf("identity vehicle is nil for token ID: %d", vehicle.VehicleTokenID.Int64)
-		}
 	}
 
 	if vehicle != nil && vehicle.VehicleTokenID.Int64 == 0 {
@@ -143,7 +155,12 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	}
 
 	// Send the DISEvent to the Dimo Node
-	statusCode, err := cs.dimoNodeAPISvc.SendToDimoNode(event)
+	return cs.HandleSendToDIS(event)
+}
+
+func (cs *OracleService) HandleSendToDIS(ce *cloudevent.CloudEvent[json.RawMessage]) error {
+	// Send the CloudEvent to the Dimo Node
+	statusCode, err := cs.dimoNodeAPISvc.SendToDimoNode(ce)
 	if err != nil {
 		failedStatusEventCntr.Inc()
 		cs.logger.Error().Err(err).Msg("Failed to send event to Dimo Node")
@@ -158,7 +175,7 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	}
 
 	successStatusEventCntr.Inc()
-	cs.logger.Debug().Msgf("Successfully sent event to Dimo Node for VIN: %s", vehicle.Vin)
+	cs.logger.Debug().Msg("Successfully sent event to Dimo Node")
 	return nil
 }
 
