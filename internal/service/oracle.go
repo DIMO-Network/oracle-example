@@ -89,9 +89,17 @@ func CastToUnbufferedMsg(msg []byte) (*models.UnbufferedMessageValue, error) {
 func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	cs.logger.Debug().Msgf("Received message: %s", msg)
 
+	// Ensure msg is of type []byte
+	msgBytes, ok := msg.([]byte)
+	if !ok {
+		err := fmt.Errorf("message is not of type []byte: %T", msg)
+		cs.logger.Debug().Err(err).Msg("Invalid message type.")
+		return err
+	}
+
 	if !cs.settings.ConvertToCloudEvent {
 		// Attempt to cast the message to a CloudEvent
-		cloudEvent, err := ParseCloudEvent(msg.([]byte))
+		cloudEvent, err := ParseCloudEvent(msgBytes)
 
 		if err != nil {
 			// Log the error and return
