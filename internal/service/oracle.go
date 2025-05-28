@@ -111,7 +111,7 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 		return cs.HandleSendToDIS(cloudEvent)
 	}
 
-	unbufferedMsg, err := CastToUnbufferedMsg(msg.([]byte))
+	unbufferedMsg, err := CastToUnbufferedMsg(msgBytes)
 	if err != nil {
 		return err
 	}
