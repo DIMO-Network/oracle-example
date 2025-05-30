@@ -45,7 +45,7 @@ or require the user to input something specific to that vehicle or PIN code etc.
 2. Generate an API key and add your preferred redirect URI
 3. Create your Connection License. In the future this will be in the dev console but for now provide your ClientID to your developer relations person at DIMO.
 4. Obtain the required Synthetic Device Minting roles - engineers at DIMO will do this for you.
-5. Create an Account Abstracted wallet with zerodev, we'll call this the Developer AA Wallet - engineers at DIMO can do this for you.
+5. Create an Account Abstracted wallet with zerodev, we'll call this the Developer AA Wallet - engineers at DIMO can do this for you. Future state will be in Console.
 6. Fund your Developer AA Wallet with some DCX. You can do this from the DIMO Dev Console. Required for the minting operations.
 
 ## Onboarding
@@ -70,3 +70,14 @@ This implements the onboarding process with your external system. It has a commo
 - Connect: actually onboards the VIN (or identifier) into your system so that it knows to allow connections however you with to implement it - Streaming, grpc, kafka, REST etc.
 
 There is an example struct implementation `ExternalOnboardingService` in this file, but feel free to change it up as needed. 
+
+## Sending data
+
+Data is sent to DIS (DIMO Ingest Server). DIS runs on a DIMO Node, there can be multiple and you can even run your own, but for now we'll assume a 
+single fixed node run by DIMO itself.
+
+In this example we read from a kafka stream and then POST to the DIS ingest endpoint. 
+Cloud Event repo
+https://github.com/DIMO-Network/dis
+
+mTLS auth via public private certificates
