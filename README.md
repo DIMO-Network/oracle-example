@@ -77,7 +77,32 @@ Data is sent to DIS (DIMO Ingest Server). DIS runs on a DIMO Node, there can be 
 single fixed node run by DIMO itself.
 
 In this example we read from a kafka stream and then POST to the DIS ingest endpoint. 
-Cloud Event repo
+The expectation is that payloads come through in the DIMO CloudEvent format. Cloud Event repo
 https://github.com/DIMO-Network/dis
 
-mTLS auth via public private certificates
+Their is a configuration option to disable any data mappings. If you want to just send messages via Kafka and convert them on your end, 
+you can do so and just disable `CONVERT_TO_CLOUD_EVENT` by setting it to false.
+
+DIMO Ingest Service (DIS) uses mTLS auth via public private certificates. These are configured via three settings (get them from DIMO):
+- `CERT`
+- `CERT_KEY`
+- `CA_CERT` - not a secret, DIMO root CA, same for everyone, see `deployment.yaml L#57`
+
+# Installation via HELM charts to Kubernetes cluster
+
+First step is updating your values.yaml in the `/charts/oracle-example/values.yaml`, primarily the `env` and the `ingress` sections.
+Do a search for REPLACE_ME to help find values that should be replaced.
+
+Secrets should be created in your preffered setup way, or manually with kubectl eg. 
+```shell
+kubectl create secret generic <secret-name> \
+  --from-literal=<key>=<value> \
+  --from-literal=<another-key>=<another-value> \
+  -n <namespace>
+```
+In this example, we have secrets being fed in from AWS Secretsmanager under `templates/secret.yaml` - change or remove this if you do it different.
+
+Consider renaming anything in the chart to match your desired k8s service naming. 
+For example in Char.yaml we have `name: dimo-oracle`, similarly if you do a search for anything `dimo-oracle` you should find what you may want to change. 
+
+

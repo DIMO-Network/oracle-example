@@ -39,7 +39,7 @@ type Settings struct {
 	DimoNodeEndpoint    string `yaml:"DIMO_NODE_ENDPOINT"`
 	Cert                string `yaml:"CERT"`     // should be secrets
 	CertKey             string `yaml:"CERT_KEY"` // should be secrets
-	CACert              string `yaml:"CA_CERT"`  // should be secrets
+	CACert              string `yaml:"CA_CERT"`  // DIMO Root CA, same for everybody
 
 	// Chain - These are standard Polygon values for DIMO
 	ChainID             int64          `yaml:"CHAIN_ID"`
