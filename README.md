@@ -83,10 +83,11 @@ https://github.com/DIMO-Network/dis
 Their is a configuration option to disable any data mappings. If you want to just send messages via Kafka and convert them on your end, 
 you can do so and just disable `CONVERT_TO_CLOUD_EVENT` by setting it to false.
 
-DIMO Ingest Service (DIS) uses mTLS auth via public private certificates. These are configured via three settings (get them from DIMO):
+DIMO Ingest Service (DIS) uses mTLS auth via public private certificates. These are configured via two settings (get them from DIMO):
 - `CERT`
 - `CERT_KEY`
-- `CA_CERT` - not a secret, DIMO root CA, same for everyone, see `deployment.yaml L#57`
+
+There is also a `CA_CERT` setting that is the dimo root ca which gets created from `certificateconfigmap.yaml`. It is the same for all oracles and not a secret.
 
 # Installation via HELM charts to Kubernetes cluster
 
@@ -103,6 +104,17 @@ kubectl create secret generic <secret-name> \
 In this example, we have secrets being fed in from AWS Secretsmanager under `templates/secret.yaml` - change or remove this if you do it different.
 
 Consider renaming anything in the chart to match your desired k8s service naming. 
-For example in Char.yaml we have `name: dimo-oracle`, similarly if you do a search for anything `dimo-oracle` you should find what you may want to change. 
+For example in Chart.yaml we have `name: dimo-oracle`, similarly if you do a search for anything `dimo-oracle` you should find what you may want to change. 
+
+In the templates folder, there are some thing you may or may not want - things would consider optional:
+- alerts.yaml
+- hpa.yaml
+- prometheusrule.yaml
+- servicemonitor.yaml
+
+Once you're ready, from the root:
+`helm install <release-name eg. my-dimo-oracle> ./charts/oracle-example -f values.yaml`
+
+
 
 
