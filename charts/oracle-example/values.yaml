@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/oracle-example
   pullPolicy: IfNotPresent
-  tag: v0.5.0
+  tag: eb41ffe
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
@@ -20,7 +20,6 @@ securityContext:
   capabilities:
     drop:
       - all
-
 env:
   ENVIRONMENT: prod
   PORT: '8080'
@@ -44,7 +43,7 @@ env:
   DEVICE_DEFINITIONS_API_ENDPOINT: https://device-definitions-api.dimo.zone
   DIMO_AUTH_URL: https://auth.dimo.zone
   DIMO_AUTH_DOMAIN: https://REPLACE_ME
-  DIMO_AUTH_CLIENT_ID: '0x REPLACE_ME - from dev console'
+  DIMO_AUTH_CLIENT_ID: 0x REPLACE_ME - from dev console
   CHAIN_ID: 137
   VEHICLE_NFT_ADDRESS: '0xbA5738a18d83D41847dfFbDC6101d37C69c9B0cF'
   SYNTHETIC_NFT_ADDRESS: '0x4804e8D1661cd1a1e5dDdE1ff458A7f878c0aC6D'
