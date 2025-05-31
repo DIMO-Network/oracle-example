@@ -40,7 +40,7 @@ jobs:
       - name: Update Image Version in the related HelmChart values.yaml
         uses: fjogeleit/yaml-update-action@master
         with:
-          valueFile: 'charts/oracle-example/values-prod.yaml'
+          valueFile: 'charts/oracle-example/values.yaml'
           propertyPath: 'image.tag'
           value: ${{steps.tag.outputs.tag}}
           branch: main

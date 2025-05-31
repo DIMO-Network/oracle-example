@@ -2,6 +2,8 @@ module github.com/DIMO-Network/oracle-example
 
 go 1.24.0
 
+toolchain go1.24.1
+
 require (
 	github.com/DIMO-Network/cloudevent v0.0.4
 	github.com/DIMO-Network/go-transactions v0.3.2
