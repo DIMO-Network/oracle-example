@@ -112,8 +112,37 @@ In the templates folder, there are some thing you may or may not want - things w
 - prometheusrule.yaml
 - servicemonitor.yaml
 
-Once you're ready, from the root:
-`helm install <release-name eg. my-dimo-oracle> ./charts/oracle-example -f values.yaml`
+### More on settings and secrets
+
+**Secrets you'll get from DIMO through your contact:**
+- DEVELOPER_AA_WALLET_ADDRESS
+- DEVELOPER_PK
+- SD_WALLETS_SEED
+- CERT
+- CERT_KEY
+- DIMO_AUTH_PRIVATE_KEY: this you'll need to get from DIMO [dev console](https://console.dimo.org) -> Developer License -> API Keys -> Generate -> grab the key
+
+**Non secret settings you'll get from DIMO:**
+- DIMO_AUTH_CLIENT_ID: from the [dev console](https://console.dimo.org) -> Developer License -> Client ID -> copy the 0x address
+- DIMO_AUTH_DOMAIN: whatever your deployment url is eg. dimo-oracle.yourcompany.io
+
+**Secrets you'll need to figure out:**
+- DB_HOST: (postgres db)
+- DB_USER
+- DB_PASSWORD
+- DB_NAME: not really a secret, but you'll need to create this in your system
+- DB_SSL_MODE: set to `require` by default in values.yaml
+
+- RPC_URL: ethereum compatible RPC. Create an account if you don't have one already, we've had good luck with https://www.alchemy.com
+- PAYMASTER_URL: create account in https://zerodev.app
+- BUNDLER_URL: also from https://zerodev.app
+
+### Installing once you're ready
+
+Once you have everything ready ready, from the root you can just install with typical helm command:
+```shell
+helm install <release-name eg. my-dimo-oracle> ./charts/oracle-example -f values.yaml
+```
 
 
 
