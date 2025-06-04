@@ -72,6 +72,7 @@ type Settings struct {
 	// Onboarding - can be useful to disable this for local testing / debugging
 	EnableVendorCapabilityCheck bool `yaml:"ENABLE_VENDOR_CAPABILITY_CHECK"`
 	EnableVendorConnection      bool `yaml:"ENABLE_VENDOR_CONNECTION"`
+	EnableVendorTestMode        bool `yaml:"ENABLE_VENDOR_TEST_MODE"`
 }
 
 func (s *Settings) IsProduction() bool {

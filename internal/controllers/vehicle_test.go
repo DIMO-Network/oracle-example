@@ -237,7 +237,7 @@ func (s *VehicleControllerTestSuite) TestGetVerificationStatusForVins() {
 
 	dbVin := dbmodels.Vin{
 		Vin:              "ABCDEFG1234567812",
-		OnboardingStatus: onboarding.OnboardingStatusSuccess,
+		OnboardingStatus: onboarding.OnboardingStatusMintSuccess,
 	}
 
 	s.Run("Get verification status for a list of valid VINs, some known, some not", func() {
@@ -263,7 +263,7 @@ func (s *VehicleControllerTestSuite) TestGetVerificationStatusForVins() {
 				{
 					Vin:     "ABCDEFG1234567812",
 					Status:  "Success",
-					Details: "Success",
+					Details: "MintSuccess",
 				},
 			},
 		}

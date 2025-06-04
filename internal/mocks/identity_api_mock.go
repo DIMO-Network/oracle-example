@@ -17,7 +17,7 @@ func NewIdentityAPIMock(v []models.Vehicle, dd []models.DeviceDefinition) *Ident
 	}
 }
 
-func (m *IdentityAPIMock) GetVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
+func (m *IdentityAPIMock) GetVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
 	for _, vehicle := range m.Vehicles {
 		if vehicle.TokenID == tokenID {
 			return &vehicle, nil
@@ -27,7 +27,7 @@ func (m *IdentityAPIMock) GetVehicleByTokenID(tokenID uint64) (*models.Vehicle, 
 	return nil, errors.New("vehicle not found")
 }
 
-func (m *IdentityAPIMock) GetCachedVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
+func (m *IdentityAPIMock) GetCachedVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
 	for _, vehicle := range m.Vehicles {
 		if vehicle.TokenID == tokenID {
 			return &vehicle, nil
@@ -37,7 +37,7 @@ func (m *IdentityAPIMock) GetCachedVehicleByTokenID(tokenID uint64) (*models.Veh
 	return nil, errors.New("vehicle not found")
 }
 
-func (m *IdentityAPIMock) FetchVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
+func (m *IdentityAPIMock) FetchVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
 	for _, vehicle := range m.Vehicles {
 		if vehicle.TokenID == tokenID {
 			return &vehicle, nil

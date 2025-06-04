@@ -9,14 +9,12 @@ import (
 	"github.com/DIMO-Network/oracle-example/internal/convert"
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
 	"github.com/DIMO-Network/oracle-example/internal/models"
-	"net/http"
-	"time"
-
 	"github.com/patrickmn/go-cache"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog"
+	"net/http"
+	"time"
 )
 
 type OracleService struct {

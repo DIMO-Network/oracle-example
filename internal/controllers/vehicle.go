@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/go-transactions"
 	registry "github.com/DIMO-Network/go-transactions/contracts"
+	"github.com/DIMO-Network/go-zerodev"
 	"github.com/DIMO-Network/oracle-example/internal/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -91,8 +92,8 @@ func (v *VehicleController) GetVehicles(c *fiber.Ctx) error {
 	returnVehicles := []models.Vehicle{}
 
 	for _, vehicle := range identityVehicles {
-		tokenIDsToCheck = append(tokenIDsToCheck, int64(vehicle.TokenID))
-		vehiclesByTokenID[int64(vehicle.TokenID)] = vehicle
+		tokenIDsToCheck = append(tokenIDsToCheck, vehicle.TokenID)
+		vehiclesByTokenID[vehicle.TokenID] = vehicle
 	}
 
 	vins, err := v.vs.GetVinsByTokenIDs(c.Context(), tokenIDsToCheck)
@@ -162,7 +163,7 @@ func (v *VehicleController) GetVehicleByExternalID(c *fiber.Ctx) error {
 
 	vehiclesByTokenID := make(map[int64]models.Vehicle)
 	for _, vehicle := range identityVehicles {
-		vehiclesByTokenID[int64(vehicle.TokenID)] = vehicle
+		vehiclesByTokenID[vehicle.TokenID] = vehicle
 	}
 
 	tid, tidErr := vin.VehicleTokenID.Value()
@@ -211,7 +212,7 @@ func (v *VehicleController) RegisterVehicle(c *fiber.Ctx) error {
 	}
 
 	// Check if the vehicle is available in identity-api
-	identityVehicle, err := (v.identity).FetchVehicleByTokenID(tokenIDToRegister.Uint())
+	identityVehicle, err := (v.identity).FetchVehicleByTokenID(tokenIDToRegister.Int())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to load vehicle from Identity API",
@@ -261,7 +262,7 @@ func (v *VehicleController) RegisterVehicle(c *fiber.Ctx) error {
 	}
 
 	if identityVehicle.SyntheticDevice.TokenID != 0 {
-		newVin.SyntheticTokenID = null.Int64From(int64(identityVehicle.SyntheticDevice.TokenID))
+		newVin.SyntheticTokenID = null.Int64From(identityVehicle.SyntheticDevice.TokenID)
 	}
 
 	if identityVehicle.Definition.ID != "" {
@@ -289,7 +290,7 @@ type VehicleRegisterPayload struct {
 }
 
 type VinsGetParams struct {
-	Vins []string `json:"vins"`
+	Vins []string `json:"vins" query:"vins"`
 }
 
 // GetVerificationStatusForVins
@@ -312,7 +313,7 @@ func (v *VehicleController) GetVerificationStatusForVins(c *fiber.Ctx) error {
 	validVins := make([]string, 0, len(params.Vins))
 	for _, vin := range params.Vins {
 		strippedVin := strings.TrimSpace(vin)
-		if vinRegexp.MatchString(strippedVin) {
+		if v.isValidVin(strippedVin) {
 			validVins = append(validVins, strippedVin)
 		}
 	}
@@ -394,6 +395,14 @@ func (v *VehicleController) canSubmitVerificationJob(record *dbmodels.Vin) bool 
 	return !verified && (failed || !pending)
 }
 
+func (v *VehicleController) isValidVin(vin string) bool {
+	if v.settings.EnableVendorTestMode {
+		return len(vin) == 17
+	}
+
+	return vinRegexp.MatchString(vin)
+}
+
 // SubmitVerificationForVins
 // @Summary Submits VINs with country codes for verification
 // @Description Decodes the VINs to Device Definitions and validates vendor connectivity
@@ -416,7 +425,7 @@ func (v *VehicleController) SubmitVerificationForVins(c *fiber.Ctx) error {
 	for _, paramVin := range params.Vins {
 		strippedVin := strings.TrimSpace(paramVin.Vin)
 		strippedCountryCode := strings.TrimSpace(paramVin.CountryCode)
-		if vinRegexp.MatchString(strippedVin) {
+		if v.isValidVin(strippedVin) {
 			validVins = append(validVins, strippedVin)
 			validVinsWithCountryCode = append(validVinsWithCountryCode, VinWithCountryCode{Vin: strippedVin, CountryCode: strippedCountryCode})
 		}
@@ -542,7 +551,7 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 	validVins := make([]string, 0, len(params.Vins))
 	for _, vin := range params.Vins {
 		strippedVin := strings.TrimSpace(vin)
-		if vinRegexp.MatchString(strippedVin) {
+		if v.isValidVin(strippedVin) {
 			validVins = append(validVins, strippedVin)
 		}
 	}
@@ -562,10 +571,16 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 
 	localLog.Debug().Interface("validVins", validVins).Msgf("Got %d valid VINs for get mint", len(validVins))
 
-	mintingData := make([]VinMintingData, 0, len(validVins))
+	mintingData := make([]VinTransactionData, 0, len(validVins))
 
 	if len(validVins) > 0 {
-		dbVins, err := v.vs.GetVehiclesByVinsAndOnboardingStatusRange(c.Context(), validVins, onboarding.OnboardingStatusVendorValidationSuccess, onboarding.OnboardingStatusMintFailure)
+		dbVins, err := v.vs.GetVehiclesByVinsAndOnboardingStatusRange(
+			c.Context(),
+			validVins,
+			onboarding.OnboardingStatusVendorValidationSuccess,
+			onboarding.OnboardingStatusMintFailure,
+			[]int{onboarding.OnboardingStatusBurnSDSuccess},
+		)
 		if err != nil {
 			if errors.Is(err, service.ErrVehicleNotFound) {
 				return fiber.NewError(fiber.StatusBadRequest, "Could not find Vehicles")
@@ -578,7 +593,7 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 
 		if len(dbVins) != len(validVins) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Some of the VINs are not verified",
+				"error": "Some of the VINs are not verified or already onboarded",
 			})
 		}
 
@@ -620,8 +635,8 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 				)
 			} else if dbVin.SyntheticTokenID.IsZero() {
 				typedData = v.tr.GetMintSDTypedData(
-					new(big.Int).SetUint64(definition.Manufacturer.TokenID),
-					new(big.Int).SetInt64(dbVin.VehicleTokenID.Int64),
+					big.NewInt(4),
+					big.NewInt(dbVin.VehicleTokenID.Int64),
 				)
 			} else {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -629,7 +644,7 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 				})
 			}
 
-			vinMintingData := VinMintingData{
+			vinMintingData := VinTransactionData{
 				Vin:       dbVin.Vin,
 				TypedData: *typedData,
 			}
@@ -643,14 +658,33 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 	})
 }
 
-type VinMintingData struct {
+type SacdInput struct {
+	Grantee     common.Address
+	Permissions int64
+	Expiration  int64
+	Source      string
+}
+
+type VinTransactionData struct {
 	Vin       string           `json:"vin"`
 	TypedData signer.TypedData `json:"typedData"`
 	Signature hexutil.Bytes    `json:"signature,omitempty"`
 }
 
 type MintDataForVins struct {
-	VinMintingData []VinMintingData `json:"vinMintingData"`
+	VinMintingData []VinTransactionData `json:"vinMintingData"`
+	Sacd           SacdInput            `json:"sacd,omitempty"`
+}
+
+type VinUserOperationData struct {
+	Vin           string                 `json:"vin"`
+	UserOperation *zerodev.UserOperation `json:"userOperation"`
+	Hash          common.Hash            `json:"hash"`
+	Signature     hexutil.Bytes          `json:"signature,omitempty"`
+}
+
+type DisconnectDataForVins struct {
+	VinDisconnectData []VinUserOperationData `json:"vinDisconnectData"`
 }
 
 func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
@@ -672,7 +706,7 @@ func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
 	localLog.Debug().Msg("Submitting VINs to mint")
 
 	validVins := make([]string, 0, len(params.VinMintingData))
-	validVinsMintingData := make([]VinMintingData, 0, len(params.VinMintingData))
+	validVinsMintingData := make([]VinTransactionData, 0, len(params.VinMintingData))
 	for _, paramVin := range params.VinMintingData {
 		validatedVinMintingData, err := v.getValidatedMintingData(&paramVin, walletAddress)
 		if err != nil {
@@ -777,12 +811,12 @@ func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
 	})
 }
 
-func (v *VehicleController) getValidatedMintingData(data *VinMintingData, _ common.Address) (*VinMintingData, error) {
-	result := new(VinMintingData)
+func (v *VehicleController) getValidatedMintingData(data *VinTransactionData, _ common.Address) (*VinTransactionData, error) {
+	result := new(VinTransactionData)
 
 	// Validate VIN
 	strippedVin := strings.TrimSpace(data.Vin)
-	if !vinRegexp.MatchString(strippedVin) {
+	if !v.isValidVin(strippedVin) {
 		return nil, errors.New("invalid VIN")
 	}
 
@@ -828,10 +862,11 @@ func (v *VehicleController) canSubmitMintingJob(record *dbmodels.Vin) bool {
 	}
 
 	minted := onboarding.IsMinted(record.OnboardingStatus)
+	burned := onboarding.IsDisconnected(record.OnboardingStatus)
 	failed := onboarding.IsFailure(record.OnboardingStatus)
-	pending := onboarding.IsMintPending(record.OnboardingStatus)
+	pending := onboarding.IsMintPending(record.OnboardingStatus) || onboarding.IsDisconnectPending(record.OnboardingStatus)
 
-	return !minted && (failed || !pending)
+	return (!minted || burned) && (failed || !pending)
 }
 
 func (v *VehicleController) GetMintStatusForVins(c *fiber.Ctx) error {
@@ -848,7 +883,7 @@ func (v *VehicleController) GetMintStatusForVins(c *fiber.Ctx) error {
 	validVins := make([]string, 0, len(params.Vins))
 	for _, vin := range params.Vins {
 		strippedVin := strings.TrimSpace(vin)
-		if vinRegexp.MatchString(strippedVin) {
+		if v.isValidVin(strippedVin) {
 			validVins = append(validVins, strippedVin)
 		}
 	}
@@ -898,7 +933,367 @@ func (v *VehicleController) GetMintStatusForVins(c *fiber.Ctx) error {
 			} else {
 				statuses = append(statuses, VinStatus{
 					Vin:     vin,
-					Status:  onboarding.GetGeneralStatus(dbVin.OnboardingStatus),
+					Status:  onboarding.GetMintStatus(dbVin.OnboardingStatus),
+					Details: onboarding.GetDetailedStatus(dbVin.OnboardingStatus),
+				})
+			}
+		}
+	}
+
+	return c.JSON(StatusForVinsResponse{
+		Statuses: statuses,
+	})
+}
+
+// GetDisconnectDataForVins
+// @Summary Get verification status for each of the submitted VINs
+// @Produce json
+// @Success 200
+// @Security     BearerAuth
+// @Router /v1/vehicle/disconnect [get]
+func (v *VehicleController) GetDisconnectDataForVins(c *fiber.Ctx) error {
+	params := new(VinsGetParams)
+	if err := c.QueryParser(params); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse VINs",
+		})
+	}
+
+	walletAddress, err := getWalletAddress(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get wallet address",
+		})
+	}
+
+	localLog := v.logger.With().Interface("vins", params.Vins).Str(logfields.FunctionName, "GetDisconnectDataForVins").Logger()
+	localLog.Debug().Msg("Getting disconnection data for Vins")
+
+	validVins := make([]string, 0, len(params.Vins))
+	for _, vin := range params.Vins {
+		strippedVin := strings.TrimSpace(vin)
+		if v.isValidVin(strippedVin) {
+			validVins = append(validVins, strippedVin)
+		}
+	}
+
+	if len(validVins) != len(params.Vins) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid VINs provided",
+		})
+	}
+
+	compactedVins := slices.Compact(validVins)
+	if len(validVins) != len(compactedVins) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Duplicated VINs",
+		})
+	}
+
+	localLog.Debug().Interface("validVins", validVins).Msgf("Got %d valid VINs for disconnection", len(validVins))
+
+	disconnectionData := make([]VinUserOperationData, 0, len(validVins))
+
+	if len(validVins) > 0 {
+		dbVins, err := v.vs.GetVehiclesByVinsAndOnboardingStatusRange(c.Context(), validVins, onboarding.OnboardingStatusMintSuccess, onboarding.OnboardingStatusBurnSDFailure, nil)
+		if err != nil {
+			if errors.Is(err, service.ErrVehicleNotFound) {
+				return fiber.NewError(fiber.StatusBadRequest, "Could not find Vehicles")
+			}
+
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to load vehicles from Database",
+			})
+		}
+
+		if len(dbVins) != len(validVins) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Some of the VINs are not fully onboarded",
+			})
+		}
+
+		indexedVins := make(map[string]*dbmodels.Vin)
+		for _, vin := range dbVins {
+			indexedVins[vin.Vin] = vin
+		}
+
+		identityVehicles, err := v.identity.FetchVehiclesByWalletAddress(walletAddress.String())
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to fetch identity vehicles",
+			})
+		}
+
+		indexedIdentityVehicles := make(map[int64]models.Vehicle)
+		for _, identityVehicle := range identityVehicles {
+			indexedIdentityVehicles[identityVehicle.TokenID] = identityVehicle
+		}
+
+		for _, dbVin := range dbVins {
+			identityVehicle, ok := indexedIdentityVehicles[dbVin.VehicleTokenID.Int64]
+			if !ok {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "VIN not owned",
+				})
+			}
+
+			fullyConnected := !dbVin.VehicleTokenID.IsZero() && !dbVin.SyntheticTokenID.IsZero()
+
+			if !fullyConnected {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "VIN not minted",
+				})
+			}
+
+			fullyConnectedIdentity := identityVehicle.TokenID == dbVin.VehicleTokenID.Int64 && identityVehicle.SyntheticDevice.TokenID == dbVin.SyntheticTokenID.Int64
+
+			if !fullyConnectedIdentity {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "TokenIDs mismatch",
+				})
+			}
+
+			op, hash, err := v.tr.GetBurnSDByOwnerUserOperationAndHash(walletAddress, big.NewInt(dbVin.SyntheticTokenID.Int64))
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to get Burn SD operation data",
+				})
+			}
+
+			vinMintingData := VinUserOperationData{
+				Vin:           dbVin.Vin,
+				UserOperation: op,
+				Hash:          *hash,
+			}
+
+			disconnectionData = append(disconnectionData, vinMintingData)
+		}
+	}
+
+	return c.JSON(DisconnectDataForVins{
+		VinDisconnectData: disconnectionData,
+	})
+}
+
+func (v *VehicleController) SubmitDisconnectDataForVins(c *fiber.Ctx) error {
+	walletAddress, err := getWalletAddress(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to get wallet address",
+		})
+	}
+
+	params := new(DisconnectDataForVins)
+	if err := c.BodyParser(params); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse disconnection data",
+		})
+	}
+
+	localLog := v.logger.With().Str(logfields.FunctionName, "SubmitDisconnectDataForVins").Logger()
+	localLog.Debug().Msg("Submitting VINs to disconnect")
+
+	validVins := make([]string, 0, len(params.VinDisconnectData))
+	validVinsDisconnectData := make([]VinUserOperationData, 0, len(params.VinDisconnectData))
+	for _, paramVin := range params.VinDisconnectData {
+		validatedVinMintingData, err := v.getValidatedUserOperationData(&paramVin, walletAddress)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid disconnect data",
+			})
+		}
+
+		validVins = append(validVins, validatedVinMintingData.Vin)
+		validVinsDisconnectData = append(validVinsDisconnectData, *validatedVinMintingData)
+	}
+
+	if len(validVins) != len(params.VinDisconnectData) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid disconnect data provided",
+		})
+	}
+
+	compactedVins := slices.Compact(validVins)
+	if len(validVins) != len(compactedVins) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Duplicated VINs",
+		})
+	}
+
+	localLog.Debug().Interface("validVins", validVins).Msgf("Got %d valid VINs submitted to disconnect", len(validVins))
+
+	statuses := make([]VinStatus, 0, len(params.VinDisconnectData))
+
+	if len(validVins) > 0 {
+		dbVins, err := v.vs.GetVehiclesByVins(c.Context(), validVins)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fiber.NewError(fiber.StatusNotFound, "Could not find Vehicles")
+			}
+
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to load vehicles from Database",
+			})
+		}
+
+		indexedDbVins := make(map[string]*dbmodels.Vin)
+		for _, vin := range dbVins {
+			indexedDbVins[vin.Vin] = vin
+		}
+
+		for _, disconnect := range validVinsDisconnectData {
+			dbVin, ok := indexedDbVins[disconnect.Vin]
+			if !ok {
+				dbVin = &dbmodels.Vin{
+					Vin:              disconnect.Vin,
+					OnboardingStatus: onboarding.OnboardingStatusDisconnectSubmitUnknown,
+				}
+			}
+
+			if v.canSubmitDisconnectJob(dbVin) {
+				localLog.Debug().Str(logfields.VIN, disconnect.Vin).Msg("Submitting disconnect job")
+
+				op := disconnect.UserOperation
+				op.Signature = disconnect.Signature
+
+				_, err = v.riverClient.Insert(c.Context(), onboarding.DisconnectArgs{
+					VIN:           disconnect.Vin,
+					UserOperation: disconnect.UserOperation,
+				}, nil)
+
+				if err != nil {
+					v.logger.Error().Str(logfields.VIN, disconnect.Vin).Err(err).Msg("Failed to submit disconnect job")
+					statuses = append(statuses, VinStatus{
+						Vin:     disconnect.Vin,
+						Status:  "Failure",
+						Details: onboarding.GetDetailedStatus(onboarding.OnboardingStatusDisconnectSubmitFailure),
+					})
+				} else {
+					v.logger.Debug().Str(logfields.VIN, disconnect.Vin).Msg("disconnect job submitted")
+					statuses = append(statuses, VinStatus{
+						Vin:     disconnect.Vin,
+						Status:  "Pending",
+						Details: onboarding.GetDetailedStatus(onboarding.OnboardingStatusDisconnectSubmitPending),
+					})
+				}
+			} else {
+				v.logger.Debug().Str(logfields.VIN, disconnect.Vin).Msg("Skipping disconnect job submission")
+				statuses = append(statuses, VinStatus{
+					Vin:     disconnect.Vin,
+					Status:  onboarding.GetVerificationStatus(dbVin.OnboardingStatus),
+					Details: onboarding.GetDetailedStatus(dbVin.OnboardingStatus),
+				})
+			}
+
+			err = v.vs.InsertOrUpdateVin(c.Context(), dbVin)
+
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": fmt.Sprintf("Failed to submit disconnect: %v", disconnect),
+				})
+			}
+			localLog.Debug().Str(logfields.VIN, disconnect.Vin).Msg("Submitted disconnect for VIN")
+		}
+	}
+
+	return c.JSON(StatusForVinsResponse{
+		Statuses: statuses,
+	})
+}
+
+func (v *VehicleController) getValidatedUserOperationData(data *VinUserOperationData, _ common.Address) (*VinUserOperationData, error) {
+	result := new(VinUserOperationData)
+
+	// Validate VIN
+	strippedVin := strings.TrimSpace(data.Vin)
+	if !v.isValidVin(strippedVin) {
+		return nil, errors.New("invalid VIN")
+	}
+
+	result.Vin = strippedVin
+	result.UserOperation = data.UserOperation
+	result.Hash = data.Hash
+	result.Signature = data.Signature
+	return result, nil
+}
+
+func (v *VehicleController) canSubmitDisconnectJob(record *dbmodels.Vin) bool {
+	if record == nil {
+		return false
+	}
+
+	minted := onboarding.IsMinted(record.OnboardingStatus)
+	failed := onboarding.IsFailure(record.OnboardingStatus)
+	pending := onboarding.IsDisconnectPending(record.OnboardingStatus)
+
+	return minted && (failed || !pending)
+}
+
+func (v *VehicleController) GetDisconnectStatusForVins(c *fiber.Ctx) error {
+	params := new(VinsGetParams)
+	if err := c.QueryParser(params); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse VINs",
+		})
+	}
+
+	localLog := v.logger.With().Str(logfields.FunctionName, "GetDisconnectStatusForVins").Interface("validVins", params.Vins).Logger()
+	localLog.Debug().Interface("vins", params.Vins).Msg("Checking Disconnect Status for Vins")
+
+	validVins := make([]string, 0, len(params.Vins))
+	for _, vin := range params.Vins {
+		strippedVin := strings.TrimSpace(vin)
+		if v.isValidVin(strippedVin) {
+			validVins = append(validVins, strippedVin)
+		}
+	}
+
+	if len(validVins) != len(params.Vins) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid VINs provided",
+		})
+	}
+
+	compactedVins := slices.Compact(validVins)
+	if len(validVins) != len(compactedVins) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Duplicated VINs",
+		})
+	}
+
+	localLog.Debug().Interface("validVins", validVins).Msgf("Got %d valid VINs", len(validVins))
+
+	statuses := make([]VinStatus, 0, len(validVins))
+
+	if len(validVins) > 0 {
+		dbVins, err := v.vs.GetVehiclesByVins(c.Context(), validVins)
+		if err != nil {
+			if errors.Is(err, service.ErrVehicleNotFound) {
+				return fiber.NewError(fiber.StatusNotFound, "Could not find Vehicles")
+			}
+
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to load vehicles from Database",
+			})
+		}
+
+		indexedVins := make(map[string]*dbmodels.Vin)
+		for _, vin := range dbVins {
+			indexedVins[vin.Vin] = vin
+		}
+
+		for _, vin := range validVins {
+			dbVin, ok := indexedVins[vin]
+			if !ok {
+				statuses = append(statuses, VinStatus{
+					Vin:     vin,
+					Status:  "Unknown",
+					Details: "Unknown",
+				})
+			} else {
+				statuses = append(statuses, VinStatus{
+					Vin:     vin,
+					Status:  onboarding.GetDisconnectStatus(dbVin.OnboardingStatus),
 					Details: onboarding.GetDetailedStatus(dbVin.OnboardingStatus),
 				})
 			}

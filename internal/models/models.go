@@ -11,7 +11,7 @@ type GraphQLRequest struct {
 type Vehicle struct {
 	VIN             string          `json:"vin"`
 	ID              string          `json:"id"`
-	TokenID         uint64          `json:"tokenId"`
+	TokenID         int64           `json:"tokenId"`
 	MintedAt        string          `json:"mintedAt"`
 	Owner           string          `json:"owner"`
 	Definition      Definition      `json:"definition"`
@@ -20,7 +20,7 @@ type Vehicle struct {
 
 type SyntheticDevice struct {
 	ID       string `json:"id"`
-	TokenID  uint64 `json:"tokenId"`
+	TokenID  int64  `json:"tokenId"`
 	MintedAt string `json:"mintedAt"`
 }
 
@@ -107,15 +107,22 @@ type SubStatus struct {
 	} `json:"source.telemetryFuel"`
 }
 
-type EnrollmentMessage struct {
-	ID               string    `json:"id"`
-	Type             string    `json:"type"`
-	Action           string    `json:"action"`
-	CreatedTimestamp string    `json:"createdTimestamp"`
-	Status           string    `json:"status"`
-	VIN              string    `json:"vin"`
-	DataType         string    `json:"dataType"`
-	SubStatus        SubStatus `json:"subStatus"`
+type OperationError struct {
+	Code        string `json:"code"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+type OperationMessage struct {
+	ID               string         `json:"id"`
+	Type             string         `json:"type"`
+	Action           string         `json:"action"`
+	CreatedTimestamp string         `json:"createdTimestamp"`
+	Status           string         `json:"status"`
+	VIN              string         `json:"vin"`
+	DataType         string         `json:"dataType"`
+	Error            OperationError `json:"error"`
+	SubStatus        SubStatus      `json:"subStatus"`
 	Data             struct {
 		ID               string   `json:"id"`
 		CreatedTimestamp string   `json:"createdTimestamp"`

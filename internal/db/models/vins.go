@@ -24,57 +24,77 @@ import (
 
 // Vin is an object representing the database table.
 type Vin struct {
-	Vin                string      `boil:"vin" json:"vin" toml:"vin" yaml:"vin"`
-	VehicleTokenID     null.Int64  `boil:"vehicle_token_id" json:"vehicle_token_id,omitempty" toml:"vehicle_token_id" yaml:"vehicle_token_id,omitempty"`
-	SyntheticTokenID   null.Int64  `boil:"synthetic_token_id" json:"synthetic_token_id,omitempty" toml:"synthetic_token_id" yaml:"synthetic_token_id,omitempty"`
-	ExternalID         null.String `boil:"external_id" json:"external_id,omitempty" toml:"external_id" yaml:"external_id,omitempty"`
-	ConnectionStatus   null.String `boil:"connection_status" json:"connection_status,omitempty" toml:"connection_status" yaml:"connection_status,omitempty"`
-	OnboardingStatus   int         `boil:"onboarding_status" json:"onboarding_status" toml:"onboarding_status" yaml:"onboarding_status"`
-	DeviceDefinitionID null.String `boil:"device_definition_id" json:"device_definition_id,omitempty" toml:"device_definition_id" yaml:"device_definition_id,omitempty"`
-	WalletIndex        null.Int64  `boil:"wallet_index" json:"wallet_index,omitempty" toml:"wallet_index" yaml:"wallet_index,omitempty"`
+	Vin                       string      `boil:"vin" json:"vin" toml:"vin" yaml:"vin"`
+	VehicleTokenID            null.Int64  `boil:"vehicle_token_id" json:"vehicle_token_id,omitempty" toml:"vehicle_token_id" yaml:"vehicle_token_id,omitempty"`
+	SyntheticTokenID          null.Int64  `boil:"synthetic_token_id" json:"synthetic_token_id,omitempty" toml:"synthetic_token_id" yaml:"synthetic_token_id,omitempty"`
+	ExternalID                null.String `boil:"external_id" json:"external_id,omitempty" toml:"external_id" yaml:"external_id,omitempty"`
+	ConnectionStatus          null.String `boil:"connection_status" json:"connection_status,omitempty" toml:"connection_status" yaml:"connection_status,omitempty"`
+	OnboardingStatus          int         `boil:"onboarding_status" json:"onboarding_status" toml:"onboarding_status" yaml:"onboarding_status"`
+	DeviceDefinitionID        null.String `boil:"device_definition_id" json:"device_definition_id,omitempty" toml:"device_definition_id" yaml:"device_definition_id,omitempty"`
+	WalletIndex               null.Int64  `boil:"wallet_index" json:"wallet_index,omitempty" toml:"wallet_index" yaml:"wallet_index,omitempty"`
+	DisconnectionStatus       null.String `boil:"disconnection_status" json:"disconnection_status,omitempty" toml:"disconnection_status" yaml:"disconnection_status,omitempty"`
+	OperationErrorCode        null.String `boil:"operation_error_code" json:"operation_error_code,omitempty" toml:"operation_error_code" yaml:"operation_error_code,omitempty"`
+	OperationErrorType        null.String `boil:"operation_error_type" json:"operation_error_type,omitempty" toml:"operation_error_type" yaml:"operation_error_type,omitempty"`
+	OperationErrorDescription null.String `boil:"operation_error_description" json:"operation_error_description,omitempty" toml:"operation_error_description" yaml:"operation_error_description,omitempty"`
 
 	R *vinR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L vinL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var VinColumns = struct {
-	Vin                string
-	VehicleTokenID     string
-	SyntheticTokenID   string
-	ExternalID         string
-	ConnectionStatus   string
-	OnboardingStatus   string
-	DeviceDefinitionID string
-	WalletIndex        string
+	Vin                       string
+	VehicleTokenID            string
+	SyntheticTokenID          string
+	ExternalID                string
+	ConnectionStatus          string
+	OnboardingStatus          string
+	DeviceDefinitionID        string
+	WalletIndex               string
+	DisconnectionStatus       string
+	OperationErrorCode        string
+	OperationErrorType        string
+	OperationErrorDescription string
 }{
-	Vin:                "vin",
-	VehicleTokenID:     "vehicle_token_id",
-	SyntheticTokenID:   "synthetic_token_id",
-	ExternalID:         "external_id",
-	ConnectionStatus:   "connection_status",
-	OnboardingStatus:   "onboarding_status",
-	DeviceDefinitionID: "device_definition_id",
-	WalletIndex:        "wallet_index",
+	Vin:                       "vin",
+	VehicleTokenID:            "vehicle_token_id",
+	SyntheticTokenID:          "synthetic_token_id",
+	ExternalID:                "external_id",
+	ConnectionStatus:          "connection_status",
+	OnboardingStatus:          "onboarding_status",
+	DeviceDefinitionID:        "device_definition_id",
+	WalletIndex:               "wallet_index",
+	DisconnectionStatus:       "disconnection_status",
+	OperationErrorCode:        "operation_error_code",
+	OperationErrorType:        "operation_error_type",
+	OperationErrorDescription: "operation_error_description",
 }
 
 var VinTableColumns = struct {
-	Vin                string
-	VehicleTokenID     string
-	SyntheticTokenID   string
-	ExternalID         string
-	ConnectionStatus   string
-	OnboardingStatus   string
-	DeviceDefinitionID string
-	WalletIndex        string
+	Vin                       string
+	VehicleTokenID            string
+	SyntheticTokenID          string
+	ExternalID                string
+	ConnectionStatus          string
+	OnboardingStatus          string
+	DeviceDefinitionID        string
+	WalletIndex               string
+	DisconnectionStatus       string
+	OperationErrorCode        string
+	OperationErrorType        string
+	OperationErrorDescription string
 }{
-	Vin:                "vins.vin",
-	VehicleTokenID:     "vins.vehicle_token_id",
-	SyntheticTokenID:   "vins.synthetic_token_id",
-	ExternalID:         "vins.external_id",
-	ConnectionStatus:   "vins.connection_status",
-	OnboardingStatus:   "vins.onboarding_status",
-	DeviceDefinitionID: "vins.device_definition_id",
-	WalletIndex:        "vins.wallet_index",
+	Vin:                       "vins.vin",
+	VehicleTokenID:            "vins.vehicle_token_id",
+	SyntheticTokenID:          "vins.synthetic_token_id",
+	ExternalID:                "vins.external_id",
+	ConnectionStatus:          "vins.connection_status",
+	OnboardingStatus:          "vins.onboarding_status",
+	DeviceDefinitionID:        "vins.device_definition_id",
+	WalletIndex:               "vins.wallet_index",
+	DisconnectionStatus:       "vins.disconnection_status",
+	OperationErrorCode:        "vins.operation_error_code",
+	OperationErrorType:        "vins.operation_error_type",
+	OperationErrorDescription: "vins.operation_error_description",
 }
 
 // Generated where
@@ -218,23 +238,31 @@ func (w whereHelperint) NIN(slice []int) qm.QueryMod {
 }
 
 var VinWhere = struct {
-	Vin                whereHelperstring
-	VehicleTokenID     whereHelpernull_Int64
-	SyntheticTokenID   whereHelpernull_Int64
-	ExternalID         whereHelpernull_String
-	ConnectionStatus   whereHelpernull_String
-	OnboardingStatus   whereHelperint
-	DeviceDefinitionID whereHelpernull_String
-	WalletIndex        whereHelpernull_Int64
+	Vin                       whereHelperstring
+	VehicleTokenID            whereHelpernull_Int64
+	SyntheticTokenID          whereHelpernull_Int64
+	ExternalID                whereHelpernull_String
+	ConnectionStatus          whereHelpernull_String
+	OnboardingStatus          whereHelperint
+	DeviceDefinitionID        whereHelpernull_String
+	WalletIndex               whereHelpernull_Int64
+	DisconnectionStatus       whereHelpernull_String
+	OperationErrorCode        whereHelpernull_String
+	OperationErrorType        whereHelpernull_String
+	OperationErrorDescription whereHelpernull_String
 }{
-	Vin:                whereHelperstring{field: "\"oracle_example\".\"vins\".\"vin\""},
-	VehicleTokenID:     whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"vehicle_token_id\""},
-	SyntheticTokenID:   whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"synthetic_token_id\""},
-	ExternalID:         whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"external_id\""},
-	ConnectionStatus:   whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"connection_status\""},
-	OnboardingStatus:   whereHelperint{field: "\"oracle_example\".\"vins\".\"onboarding_status\""},
-	DeviceDefinitionID: whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"device_definition_id\""},
-	WalletIndex:        whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"wallet_index\""},
+	Vin:                       whereHelperstring{field: "\"oracle_example\".\"vins\".\"vin\""},
+	VehicleTokenID:            whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"vehicle_token_id\""},
+	SyntheticTokenID:          whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"synthetic_token_id\""},
+	ExternalID:                whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"external_id\""},
+	ConnectionStatus:          whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"connection_status\""},
+	OnboardingStatus:          whereHelperint{field: "\"oracle_example\".\"vins\".\"onboarding_status\""},
+	DeviceDefinitionID:        whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"device_definition_id\""},
+	WalletIndex:               whereHelpernull_Int64{field: "\"oracle_example\".\"vins\".\"wallet_index\""},
+	DisconnectionStatus:       whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"disconnection_status\""},
+	OperationErrorCode:        whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"operation_error_code\""},
+	OperationErrorType:        whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"operation_error_type\""},
+	OperationErrorDescription: whereHelpernull_String{field: "\"oracle_example\".\"vins\".\"operation_error_description\""},
 }
 
 // VinRels is where relationship names are stored.
@@ -254,9 +282,9 @@ func (*vinR) NewStruct() *vinR {
 type vinL struct{}
 
 var (
-	vinAllColumns            = []string{"vin", "vehicle_token_id", "synthetic_token_id", "external_id", "connection_status", "onboarding_status", "device_definition_id", "wallet_index"}
+	vinAllColumns            = []string{"vin", "vehicle_token_id", "synthetic_token_id", "external_id", "connection_status", "onboarding_status", "device_definition_id", "wallet_index", "disconnection_status", "operation_error_code", "operation_error_type", "operation_error_description"}
 	vinColumnsWithoutDefault = []string{"vin"}
-	vinColumnsWithDefault    = []string{"vehicle_token_id", "synthetic_token_id", "external_id", "connection_status", "onboarding_status", "device_definition_id", "wallet_index"}
+	vinColumnsWithDefault    = []string{"vehicle_token_id", "synthetic_token_id", "external_id", "connection_status", "onboarding_status", "device_definition_id", "wallet_index", "disconnection_status", "operation_error_code", "operation_error_type", "operation_error_description"}
 	vinPrimaryKeyColumns     = []string{"vin"}
 	vinGeneratedColumns      = []string{}
 )

@@ -151,10 +151,10 @@ func (s *OracleTestSuite) TestDeviceMinted() {
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
 	// Mock the IdentityAPIService
 	mockService := &MockIdentityAPIService{
-		MockGetCachedVehicleByTokenID: func(tokenID uint64) (*models.Vehicle, error) {
+		MockGetCachedVehicleByTokenID: func(tokenID int64) (*models.Vehicle, error) {
 			return &models.Vehicle{ID: "123", TokenID: tokenID}, nil
 		},
-		MockFetchVehicleByTokenID: func(tokenID uint64) (*models.Vehicle, error) {
+		MockFetchVehicleByTokenID: func(tokenID int64) (*models.Vehicle, error) {
 			return &models.Vehicle{ID: "456", TokenID: tokenID}, nil
 		},
 	}
@@ -318,8 +318,8 @@ func prepare(nodeEndpoint string) DimoNodeAPI {
 
 // MockIdentityAPIService is a mock implementation of IdentityAPIService
 type MockIdentityAPIService struct {
-	MockGetCachedVehicleByTokenID    func(tokenID uint64) (*models.Vehicle, error)
-	MockFetchVehicleByTokenID        func(tokenID uint64) (*models.Vehicle, error)
+	MockGetCachedVehicleByTokenID    func(tokenID int64) (*models.Vehicle, error)
+	MockFetchVehicleByTokenID        func(tokenID int64) (*models.Vehicle, error)
 	MockFetchVehiclesByWalletAddress func(walletAddress string) ([]models.Vehicle, error)
 
 	MockGetDeviceDefinitionByID       func(id string) (*models.DeviceDefinition, error)
@@ -327,14 +327,14 @@ type MockIdentityAPIService struct {
 	MockFetchDeviceDefinitionByID     func(id string) (*models.DeviceDefinition, error)
 }
 
-func (m *MockIdentityAPIService) GetCachedVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
+func (m *MockIdentityAPIService) GetCachedVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
 	if m.MockGetCachedVehicleByTokenID != nil {
 		return m.MockGetCachedVehicleByTokenID(tokenID)
 	}
 	return nil, nil
 }
 
-func (m *MockIdentityAPIService) FetchVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
+func (m *MockIdentityAPIService) FetchVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
 	if m.MockFetchVehicleByTokenID != nil {
 		return m.MockFetchVehicleByTokenID(tokenID)
 	}

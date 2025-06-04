@@ -30,7 +30,7 @@ func (h MessageHandlerUnbuffered) Cleanup(_ sarama.ConsumerGroupSession) error {
 type MessageHandlerOperations struct {
 	Logger            *zerolog.Logger
 	OracleService     *service.OracleService
-	EnrollmentChannel chan models.EnrollmentMessage
+	EnrollmentChannel chan models.OperationMessage
 }
 
 func (h MessageHandlerOperations) Setup(_ sarama.ConsumerGroupSession) error {
@@ -124,6 +124,20 @@ func (h MessageHandlerUnbuffered) ConsumeClaim(s sarama.ConsumerGroupSession, c 
 	return nil
 }
 
+const OperationTypeEnrollment = "enrollment"
+
+const (
+	ActionEnroll   = "enroll"
+	ActionUnenroll = "unenroll"
+)
+
+const (
+	OperationStatusInQueue    string = "inQueue"
+	OperationStatusInProgress string = "inProgress"
+	OperationStatusSucceeded  string = "succeeded"
+	OperationStatusFailed     string = "failed"
+)
+
 func (h MessageHandlerOperations) ConsumeClaim(s sarama.ConsumerGroupSession, c sarama.ConsumerGroupClaim) error {
 	for msg := range c.Messages() {
 		h.Logger.Debug().
@@ -134,30 +148,53 @@ func (h MessageHandlerOperations) ConsumeClaim(s sarama.ConsumerGroupSession, c 
 			Str("value", string(msg.Value)).
 			Msg("Received Kafka message for OperationsTopic")
 
-		// Parse the Kafka message into EnrollmentMessage
-		var enrollment models.EnrollmentMessage
-		if err := json.Unmarshal(msg.Value, &enrollment); err != nil {
-			h.Logger.Error().Err(err).Msg("Failed to parse Kafka message into EnrollmentMessage")
+		// Parse the Kafka message into OperationMessage
+		var operation models.OperationMessage
+		if err := json.Unmarshal(msg.Value, &operation); err != nil {
+			h.Logger.Error().Err(err).Msg("Failed to parse Kafka message into OperationMessage")
 			continue
 		}
 
-		var vehicleId string
-		vehicleId = enrollment.ID // We let external_id be enrollment.ID until we get the vehicleId from the external vendor
-		// When operation succeeds, update the database with VIN, Status, and vehicle_Id
-		if enrollment.Status == "succeeded" {
-			vehicleId = enrollment.Data.VehicleID
+		h.Logger.Debug().Interface("operation", operation).Msg("Received Kafka message for OperationsTopic")
+
+		if operation.Type == OperationTypeEnrollment {
+			var operationError *models.OperationError
+
+			if operation.Action == ActionEnroll {
+				if operation.Status == OperationStatusFailed {
+					operationError = &operation.Error
+				}
+
+				var vehicleId string
+				vehicleId = operation.ID // We let external_id be operation.ID until we get the vehicleId from the motorq
+				// When operation succeeds, update the database with VIN, Status, and vehicle_Id
+				if operation.Status == OperationStatusSucceeded {
+					vehicleId = operation.Data.VehicleID
+				}
+
+				h.EnrollmentChannel <- operation
+
+				// Update the database with VIN, Status, and vehicleId
+				if err := h.OracleService.Db.UpdateEnrollmentStatus(h.OracleService.Ctx, operation.VIN, operation.Status, vehicleId, operationError); err != nil {
+					h.Logger.Error().Err(err).Msgf("Failed to update database for VIN: %s", operation.VIN)
+					continue
+				}
+
+				h.Logger.Debug().Msgf("Successfully updated database for VIN: %s with Status: %s and externalId: %s", operation.VIN, operation.Status, vehicleId)
+			} else if operation.Action == ActionUnenroll {
+				h.EnrollmentChannel <- operation
+
+				// Update the database with VIN, Status
+				if err := h.OracleService.Db.UpdateUnenrollmentStatus(h.OracleService.Ctx, operation.VIN, operation.Status, operationError); err != nil {
+					h.Logger.Error().Err(err).Msgf("Failed to update database for VIN: %s", operation.VIN)
+					continue
+				}
+
+				h.Logger.Debug().Msgf("Successfully updated database for VIN: %s with Status: %s and externalId: %s", operation.VIN, operation.Status, operation.ID)
+
+			}
+
 		}
-
-		h.EnrollmentChannel <- enrollment
-
-		// Update the database with VIN, Status, and vehicleId
-		if err := h.OracleService.Db.UpdateEnrollmentStatus(h.OracleService.Ctx, enrollment.VIN, enrollment.Status, vehicleId); err != nil {
-			h.Logger.Error().Err(err).Msgf("Failed to update database for VIN: %s", enrollment.VIN)
-			continue
-		}
-
-		h.Logger.Debug().Msgf("Successfully updated database for VIN: %s with Status: %s and externalId: %s", enrollment.VIN, enrollment.Status, enrollment.ID)
-
 		// Mark the message as processed
 		s.MarkMessage(msg, "")
 	}

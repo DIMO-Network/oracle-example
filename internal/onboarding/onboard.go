@@ -3,9 +3,6 @@ package onboarding
 import (
 	"context"
 	"database/sql"
-	"github.com/friendsofgo/errors"
-
-	//"errors"
 	"fmt"
 	"github.com/DIMO-Network/go-transactions"
 	registry "github.com/DIMO-Network/go-transactions/contracts"
@@ -18,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	signer "github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/friendsofgo/errors"
 	"github.com/riverqueue/river"
 	"github.com/rs/zerolog"
 	"github.com/volatiletech/null/v8"
@@ -96,7 +94,6 @@ func (a OnboardingArgs) InsertOpts() river.InsertOpts {
 			ByArgs: false,
 		},
 	}
-
 }
 
 type OnboardingWorker struct {
@@ -140,7 +137,7 @@ func (w *OnboardingWorker) Work(ctx context.Context, job *river.Job[OnboardingAr
 	}
 
 	// Check onboarding status, if successful, just return
-	if record.OnboardingStatus == OnboardingStatusSuccess {
+	if record.OnboardingStatus == OnboardingStatusMintSuccess {
 		return nil
 	}
 
@@ -162,16 +159,10 @@ func (w *OnboardingWorker) Work(ctx context.Context, job *river.Job[OnboardingAr
 	// If only SD token ID is missing, mint SD
 	if !record.SyntheticTokenID.Valid {
 		w.logger.Debug().Str(logfields.VIN, job.Args.VIN).Msg("No Synthetic Device Token ID, minting SD")
-		record, err = w.MintSDAndUpdate(ctx, record, job.Args)
+		_, err = w.MintSDAndUpdate(ctx, record, job.Args)
 		if err != nil {
 			return err
 		}
-	}
-
-	// Finalize
-	_, err = w.FinalizeOnboarding(ctx, record, job.Args)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -272,7 +263,7 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 	return record, nil
 }
 
-func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels.Vin, args OnboardingArgs) (*dbmodels.Vin, error) {
+func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels.Vin, args OnboardingArgs) (vinRecord *dbmodels.Vin, err error) {
 	// make sure we save status update (and possible new DD)
 	defer (func() {
 		_ = w.update(ctx, record, args, boil.Whitelist(dbmodels.VinColumns.OnboardingStatus, dbmodels.VinColumns.SyntheticTokenID, dbmodels.VinColumns.WalletIndex))
@@ -294,7 +285,7 @@ func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels
 		return nil, err
 	}
 
-	sdTypedData := w.tr.GetMintSDTypedData(new(big.Int).SetInt64(4), new(big.Int).SetInt64(record.VehicleTokenID.Int64))
+	sdTypedData := w.tr.GetMintSDTypedData(big.NewInt(4), big.NewInt(record.VehicleTokenID.Int64))
 	sdSignature, err := w.ws.SignTypedData(*sdTypedData, sdIndex.NextVal)
 	if err != nil {
 		w.logger.Error().Err(err).Msg("Failed to sign SD typed data")
@@ -307,6 +298,8 @@ func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels
 		SyntheticDeviceAddr: sdAddress,
 		SyntheticDeviceSig:  sdSignature,
 		AttrInfoPairs:       make([]registry.AttributeInfoPair, 0),
+		IntegrationNode:     big.NewInt(4),
+		VehicleNode:         big.NewInt(record.VehicleTokenID.Int64),
 	}
 
 	w.m.Lock()
@@ -314,9 +307,10 @@ func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels
 	if err != nil {
 		w.m.Unlock()
 		w.logger.Error().Err(err).Msg("Failed to mint SD")
-		record.OnboardingStatus = OnboardingStatusMintSuccess
+		record.OnboardingStatus = OnboardingStatusMintFailure
 		return nil, err
 	}
+	w.m.Unlock()
 
 	record.WalletIndex = null.Int64From(int64(sdIndex.NextVal))
 	record.SyntheticTokenID = null.Int64From(result.SyntheticDeviceNode.Int64())
@@ -349,17 +343,6 @@ func (w *OnboardingWorker) ConnectToVendorAndUpdate(ctx context.Context, record 
 	}
 
 	record.OnboardingStatus = OnboardingStatusConnectSuccess
-
-	return record, nil
-}
-
-func (w *OnboardingWorker) FinalizeOnboarding(ctx context.Context, record *dbmodels.Vin, args OnboardingArgs) (*dbmodels.Vin, error) {
-	w.logger.Debug().Str(logfields.VIN, args.VIN).Msg("Connecting to vendor")
-
-	// make sure we save status update (and possible new DD)
-	defer (func() { _ = w.update(ctx, record, args, boil.Whitelist(dbmodels.VinColumns.OnboardingStatus)) })()
-
-	record.OnboardingStatus = OnboardingStatusSuccess
 
 	return record, nil
 }

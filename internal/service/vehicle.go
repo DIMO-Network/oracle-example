@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
+	"github.com/DIMO-Network/oracle-example/internal/models"
 	"github.com/DIMO-Network/shared/pkg/db"
 	"github.com/friendsofgo/errors"
 	"github.com/rs/zerolog"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 type Vehicle struct {
@@ -123,7 +125,7 @@ func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatus(ctx context.Context, veh
 	return vins, nil
 }
 
-func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatusRange(ctx context.Context, vehicleIDs []string, minStatus, maxStatus int) (dbmodels.VinSlice, error) {
+func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatusRange(ctx context.Context, vehicleIDs []string, minStatus, maxStatus int, additionalStatuses []int) (dbmodels.VinSlice, error) {
 	tx, err := ds.pdb.DBS().Writer.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		ds.logger.Error().Err(err).Msg("GetVehiclesByVins: Failed to begin transaction for vehicles")
@@ -141,16 +143,29 @@ func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatusRange(ctx context.Context
 		}
 	}()
 
-	vins, err := dbmodels.Vins(
-		dbmodels.VinWhere.Vin.IN(vehicleIDs),
-		dbmodels.VinWhere.OnboardingStatus.GTE(minStatus),
-		dbmodels.VinWhere.OnboardingStatus.LTE(maxStatus),
-	).All(ctx, tx)
+	var vins dbmodels.VinSlice
+
+	if len(additionalStatuses) > 0 {
+		vinInRange := dbmodels.VinWhere.Vin.IN(vehicleIDs)
+		statusInRange := qm.Expr(dbmodels.VinWhere.OnboardingStatus.GTE(minStatus), dbmodels.VinWhere.OnboardingStatus.LTE(maxStatus))
+		statusInRangeOrAdditional := qm.Expr(statusInRange, qm.Or2(dbmodels.VinWhere.OnboardingStatus.IN(additionalStatuses)))
+
+		vins, err = dbmodels.Vins(
+			vinInRange,
+			statusInRangeOrAdditional,
+		).All(ctx, tx)
+	} else {
+		vins, err = dbmodels.Vins(
+			dbmodels.VinWhere.Vin.IN(vehicleIDs),
+			dbmodels.VinWhere.OnboardingStatus.GTE(minStatus),
+			dbmodels.VinWhere.OnboardingStatus.LTE(maxStatus),
+		).All(ctx, tx)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrVehicleNotFound
 		}
-		ds.logger.Error().Err(err).Msgf("GetVehiclesByVins: Failed to check if vehicles have been processed")
+		ds.logger.Error().Err(err).Msgf("GetVehiclesByVinsAndOnboardingStatusRange: Failed to fetch vehicles")
 		return nil, err
 	}
 
@@ -247,7 +262,7 @@ func (ds *Vehicle) InsertOrUpdateVin(ctx context.Context, vin *dbmodels.Vin) err
 }
 
 // UpdateEnrollmentStatus updates the enrollment status and external ID of a VIN record.
-func (ds *Vehicle) UpdateEnrollmentStatus(ctx context.Context, vin, status, externalID string) error {
+func (ds *Vehicle) UpdateEnrollmentStatus(ctx context.Context, vin, status, externalID string, error *models.OperationError) error {
 	tx, err := ds.pdb.DBS().Writer.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return err
@@ -267,7 +282,82 @@ func (ds *Vehicle) UpdateEnrollmentStatus(ctx context.Context, vin, status, exte
 
 	vinRecord.ConnectionStatus = null.StringFrom(status)
 	vinRecord.ExternalID = null.StringFrom(externalID)
-	if _, err := vinRecord.Update(ctx, tx, boil.Whitelist("connection_status", "external_id")); err != nil {
+	if status == "succeeded" {
+		vinRecord.DisconnectionStatus = null.String{String: "", Valid: false}
+	}
+
+	if error != nil {
+		vinRecord.OperationErrorType = null.StringFrom(error.Type)
+		vinRecord.OperationErrorCode = null.StringFrom(error.Code)
+		vinRecord.OperationErrorDescription = null.StringFrom(error.Description)
+	} else {
+		vinRecord.OperationErrorType = null.String{String: "", Valid: false}
+		vinRecord.OperationErrorCode = null.String{String: "", Valid: false}
+		vinRecord.OperationErrorDescription = null.String{String: "", Valid: false}
+	}
+
+	if _, err := vinRecord.Update(ctx, tx, boil.Whitelist(
+		dbmodels.VinColumns.ConnectionStatus,
+		dbmodels.VinColumns.DisconnectionStatus,
+		dbmodels.VinColumns.ExternalID,
+		dbmodels.VinColumns.OperationErrorType,
+		dbmodels.VinColumns.OperationErrorCode,
+		dbmodels.VinColumns.OperationErrorDescription,
+	)); err != nil {
+		return fmt.Errorf("failed to update VIN record: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		ds.logger.Error().Err(err).Msgf("Failed to commit transaction for vehicle %s", vin)
+		return err
+	}
+
+	return nil
+}
+
+// UpdateUnenrollmentStatus updates the unenrollment status of a VIN record.
+func (ds *Vehicle) UpdateUnenrollmentStatus(ctx context.Context, vin, status string, error *models.OperationError) error {
+	tx, err := ds.pdb.DBS().Writer.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				ds.logger.Error().Err(rbErr).Msgf("UpdateUnenrollmentStatus: Failed to rollback transaction for vehicle %s", vin)
+			}
+		}
+	}()
+
+	vinRecord, err := dbmodels.Vins(dbmodels.VinWhere.Vin.EQ(vin)).One(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch VIN record: %w", err)
+	}
+
+	vinRecord.DisconnectionStatus = null.StringFrom(status)
+	if status == "succeeded" {
+		vinRecord.ConnectionStatus = null.String{String: "", Valid: false}
+		vinRecord.ExternalID = null.String{String: "", Valid: false}
+	}
+
+	if error != nil {
+		vinRecord.OperationErrorType = null.StringFrom(error.Type)
+		vinRecord.OperationErrorCode = null.StringFrom(error.Code)
+		vinRecord.OperationErrorDescription = null.StringFrom(error.Description)
+	} else {
+		vinRecord.OperationErrorType = null.String{String: "", Valid: false}
+		vinRecord.OperationErrorCode = null.String{String: "", Valid: false}
+		vinRecord.OperationErrorDescription = null.String{String: "", Valid: false}
+	}
+
+	if _, err := vinRecord.Update(ctx, tx, boil.Whitelist(
+		dbmodels.VinColumns.ConnectionStatus,
+		dbmodels.VinColumns.DisconnectionStatus,
+		dbmodels.VinColumns.ExternalID,
+		dbmodels.VinColumns.OperationErrorType,
+		dbmodels.VinColumns.OperationErrorCode,
+		dbmodels.VinColumns.OperationErrorDescription,
+	)); err != nil {
 		return fmt.Errorf("failed to update VIN record: %w", err)
 	}
 
