@@ -6,7 +6,8 @@ toolchain go1.24.1
 
 require (
 	github.com/DIMO-Network/cloudevent v0.0.4
-	github.com/DIMO-Network/go-transactions v0.3.2
+	github.com/DIMO-Network/go-transactions v0.3.3
+	github.com/DIMO-Network/go-zerodev v0.4.2
 	github.com/DIMO-Network/model-garage v0.5.5
 	github.com/DIMO-Network/shared v1.0.2
 	github.com/IBM/sarama v1.45.1
@@ -44,7 +45,6 @@ require (
 require (
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
-	github.com/DIMO-Network/go-zerodev v0.4.1 // indirect
 	github.com/DIMO-Network/yaml v0.1.0 // indirect
 	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect

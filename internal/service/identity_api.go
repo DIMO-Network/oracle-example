@@ -6,22 +6,20 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/oracle-example/internal/config"
 	"github.com/DIMO-Network/oracle-example/internal/models"
+	shttp "github.com/DIMO-Network/shared/pkg/http"
+	"github.com/patrickmn/go-cache"
+	"github.com/rs/zerolog"
 	"io"
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/patrickmn/go-cache"
-
-	shttp "github.com/DIMO-Network/shared/pkg/http"
-	"github.com/rs/zerolog"
 )
 
 var ErrBadRequest = errors.New("bad request")
 
 type IdentityAPI interface {
-	GetCachedVehicleByTokenID(tokenID uint64) (*models.Vehicle, error)
-	FetchVehicleByTokenID(tokenID uint64) (*models.Vehicle, error)
+	GetCachedVehicleByTokenID(tokenID int64) (*models.Vehicle, error)
+	FetchVehicleByTokenID(tokenID int64) (*models.Vehicle, error)
 	FetchVehiclesByWalletAddress(address string) ([]models.Vehicle, error)
 
 	GetDeviceDefinitionByID(id string) (*models.DeviceDefinition, error)
@@ -52,16 +50,16 @@ func NewIdentityAPIService(logger zerolog.Logger, settings config.Settings) Iden
 	}
 }
 
-func (i *identityAPIService) GetCachedVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
-	if cachedResponse, found := i.cache.Get(fmt.Sprintf("vehicle_%s", strconv.FormatUint(tokenID, 10))); found {
+func (i *identityAPIService) GetCachedVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
+	if cachedResponse, found := i.cache.Get(fmt.Sprintf("vehicle_%s", strconv.FormatInt(tokenID, 10))); found {
 		return cachedResponse.(*models.Vehicle), nil
 	}
 
 	return nil, errors.New("not found")
 }
 
-func (i *identityAPIService) FetchVehicleByTokenID(tokenID uint64) (*models.Vehicle, error) {
-	strTokenID := strconv.FormatUint(tokenID, 10)
+func (i *identityAPIService) FetchVehicleByTokenID(tokenID int64) (*models.Vehicle, error) {
+	strTokenID := strconv.FormatInt(tokenID, 10)
 
 	// GraphQL query
 	graphqlQuery := fmt.Sprintf(VehicleByTokenIDQuery, strTokenID)

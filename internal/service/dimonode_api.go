@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/cloudevent"
 	"github.com/DIMO-Network/oracle-example/internal/config"
+	shttp "github.com/DIMO-Network/shared/pkg/http"
+	"github.com/rs/zerolog"
+	"golang.org/x/time/rate"
 	"io"
 	"net/http"
 	"time"
-
-	"golang.org/x/time/rate"
-
-	shttp "github.com/DIMO-Network/shared/pkg/http"
-	"github.com/rs/zerolog"
 )
 
 type DimoNodeAPI interface {

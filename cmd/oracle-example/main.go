@@ -85,7 +85,7 @@ func main() {
 		logger.Fatal().Err(err).Msg("Failed to create Oracle service")
 	}
 
-	enrollmentChannel := make(chan models.EnrollmentMessage, 100)
+	enrollmentChannel := make(chan models.OperationMessage, 100)
 	vendorOnboardingService := onboarding.NewExternalOnboardingService(&settings, vehicleService, &logger, enrollmentChannel)
 
 	riverClient, _, dbPool, err := createRiverClientWithWorkersAndPool(gCtx, logger, &settings, identityService, deviceDefinitionsService, oracleService, &pdb, transactionsClient, walletService, vendorOnboardingService)
@@ -173,6 +173,7 @@ func createRiverClientWithWorkersAndPool(ctx context.Context, logger zerolog.Log
 	workers := river.NewWorkers()
 	verifyWorker := onboarding.NewVerifyWorker(settings, logger, identityService, dd, os, dbs, onboardingService)
 	onboardingWorker := onboarding.NewOnboardingWorker(settings, logger, identityService, dbs, tr, ws, onboardingService)
+	disconnectWorker := onboarding.NewDisconnectWorker(settings, logger, identityService, dbs, tr, ws, onboardingService)
 
 	err := river.AddWorkerSafely(workers, verifyWorker)
 	if err != nil {
@@ -183,10 +184,17 @@ func createRiverClientWithWorkersAndPool(ctx context.Context, logger zerolog.Log
 
 	err = river.AddWorkerSafely(workers, onboardingWorker)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to add mint worker")
+		logger.Fatal().Err(err).Msg("failed to add onboarding worker")
 		return nil, nil, nil, err
 	}
-	logger.Debug().Msg("Added mint worker")
+	logger.Debug().Msg("Added onboarding worker")
+
+	err = river.AddWorkerSafely(workers, disconnectWorker)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to add disconnect worker")
+		return nil, nil, nil, err
+	}
+	logger.Debug().Msg("Added disconnect worker")
 
 	dbURL := settings.DB.BuildConnectionString(true)
 	dbPool, err := pgxpool.New(ctx, dbURL)

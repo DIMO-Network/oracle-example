@@ -5,19 +5,16 @@ import (
 	"github.com/DIMO-Network/go-transactions"
 	"github.com/DIMO-Network/oracle-example/internal/config"
 	"github.com/DIMO-Network/oracle-example/internal/controllers"
-	"github.com/DIMO-Network/oracle-example/internal/gateway"
 	"github.com/DIMO-Network/oracle-example/internal/service"
-	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
-	"strconv"
-
-	"github.com/gofiber/fiber/v2/middleware/cors"
-
 	"github.com/DIMO-Network/shared/pkg/middleware/metrics"
 	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 	"github.com/rs/zerolog"
+	"strconv"
 )
 
 func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle, riverClient *river.Client[pgx.Tx], ws service.SDWalletsAPI, tr *transactions.Client) *fiber.App {
@@ -49,13 +46,10 @@ func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle,
 		AllowCredentials: true,
 	}))
 
-	externalVendorAPI := gateway.NewExternalVendorAPI(logger, settings)
-
 	app.Get("/health", healthCheck)
 
 	identityService := service.NewIdentityAPIService(*logger, *settings)
 	vehiclesCtrl := controllers.NewVehiclesController(settings, logger, identityService, db, riverClient, ws, tr)
-	enrollCtrl := controllers.NewEnrollmentController(externalVendorAPI, db, logger)
 
 	// assumes frontend has used Login With DIMO and has a JWT from DIMO.
 	jwtAuth := jwtware.New(jwtware.Config{
@@ -64,20 +58,29 @@ func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle,
 	// get all vehicles in the database for frontend
 	app.Get("/v1/vehicles", jwtAuth, vehiclesCtrl.GetVehicles)
 
+	// gets verification (VIN decoding and vendor support check) statuses
 	app.Get("/v1/vehicle/verify", jwtAuth, vehiclesCtrl.GetVerificationStatusForVins)
 	// handles decoding the VIN to be onboarded and checking if the vendor supports this VIN. Optional.
 	app.Post("/v1/vehicle/verify", jwtAuth, vehiclesCtrl.SubmitVerificationForVins)
+
+	// gets minting status
 	app.Get("/v1/vehicle/mint/status", jwtAuth, vehiclesCtrl.GetMintStatusForVins)
 	// gets the payload to be signed for minting by the frontend (using passkey)
 	app.Get("/v1/vehicle/mint", jwtAuth, vehiclesCtrl.GetMintDataForVins)
 	// submits the passkey signed minting payload to the backend
 	app.Post("/v1/vehicle/mint", jwtAuth, vehiclesCtrl.SubmitMintDataForVins)
+
+	// gets disconnection status
+	app.Get("/v1/vehicle/disconnect/status", jwtAuth, vehiclesCtrl.GetDisconnectStatusForVins)
+	// gets the payload to be signed for disconnecting by the frontend (using passkey)
+	app.Get("/v1/vehicle/disconnect", jwtAuth, vehiclesCtrl.GetDisconnectDataForVins)
+	// submits the passkey signed disconnecting payload to the backend
+	app.Post("/v1/vehicle/disconnect", jwtAuth, vehiclesCtrl.SubmitDisconnectDataForVins)
+
 	// get a specific vehicle by ID (could be VIN or whatever identifier)
 	app.Get("/v1/vehicle/:externalID", jwtAuth, vehiclesCtrl.GetVehicleByExternalID)
 	// submits vehicles to be registered by the backend
 	app.Post("/v1/vehicle/register", jwtAuth, vehiclesCtrl.RegisterVehicle)
-	// enrolls a vehicle on the vendor's external system, allowing the oracle to query or stream data from the vehicle
-	app.Post("/v1/vehicle/enroll", jwtAuth, enrollCtrl.EnrollVehicle)
 
 	return app
 }

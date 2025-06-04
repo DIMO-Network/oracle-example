@@ -37,7 +37,21 @@ const (
 	OnboardingStatusMintFailure = 52
 	OnboardingStatusMintSuccess = 53
 
-	OnboardingStatusSuccess = 93
+	// 60-69 disconnect submission
+	OnboardingStatusDisconnectSubmitUnknown = 60
+	OnboardingStatusDisconnectSubmitPending = 61
+	OnboardingStatusDisconnectSubmitFailure = 62
+	OnboardingStatusDisconnectSubmitSuccess = 63
+
+	OnboardingStatusDisconnectUnknown = 70
+	OnboardingStatusDisconnectPending = 71
+	OnboardingStatusDisconnectFailure = 72
+	OnboardingStatusDisconnectSuccess = 73
+
+	OnboardingStatusBurnSDUnknown = 80
+	OnboardingStatusBurnSDPending = 81
+	OnboardingStatusBurnSDFailure = 82
+	OnboardingStatusBurnSDSuccess = 83
 )
 
 var statusToString = map[int]string{
@@ -65,7 +79,18 @@ var statusToString = map[int]string{
 	OnboardingStatusMintPending:             "MintPending",
 	OnboardingStatusMintFailure:             "MintFailure",
 	OnboardingStatusMintSuccess:             "MintSuccess",
-	OnboardingStatusSuccess:                 "Success",
+	OnboardingStatusDisconnectSubmitUnknown: "DisconnectSubmitUnknown",
+	OnboardingStatusDisconnectSubmitPending: "DisconnectSubmitPending",
+	OnboardingStatusDisconnectSubmitFailure: "DisconnectSubmitFailure",
+	OnboardingStatusDisconnectSubmitSuccess: "DisconnectSubmitSuccess",
+	OnboardingStatusDisconnectUnknown:       "DisconnectUnknown",
+	OnboardingStatusDisconnectPending:       "DisconnectPending",
+	OnboardingStatusDisconnectFailure:       "DisconnectFailure",
+	OnboardingStatusDisconnectSuccess:       "DisconnectSuccess",
+	OnboardingStatusBurnSDUnknown:           "BurnSDUnknown",
+	OnboardingStatusBurnSDPending:           "BurnSDPending",
+	OnboardingStatusBurnSDFailure:           "BurnSDFailure",
+	OnboardingStatusBurnSDSuccess:           "BurnSDSuccess",
 }
 
 func IsVerified(status int) bool {
@@ -73,7 +98,11 @@ func IsVerified(status int) bool {
 }
 
 func IsMinted(status int) bool {
-	return status >= OnboardingStatusMintSuccess
+	return status == OnboardingStatusMintSuccess
+}
+
+func IsDisconnected(status int) bool {
+	return status == OnboardingStatusBurnSDSuccess
 }
 
 func IsFailure(status int) bool {
@@ -81,11 +110,15 @@ func IsFailure(status int) bool {
 }
 
 func IsPending(status int) bool {
-	return status > 0 && status < OnboardingStatusSuccess
+	return status > 0 && status < OnboardingStatusMintSuccess
 }
 
 func IsMintPending(status int) bool {
-	return status > OnboardingStatusMintSubmitUnknown && status < OnboardingStatusSuccess
+	return status > OnboardingStatusMintSubmitUnknown && status < OnboardingStatusMintSuccess
+}
+
+func IsDisconnectPending(status int) bool {
+	return status > OnboardingStatusDisconnectSubmitUnknown && status < OnboardingStatusBurnSDSuccess
 }
 
 func GetVerificationStatus(status int) string {
@@ -104,8 +137,8 @@ func GetVerificationStatus(status int) string {
 	return "Unknown"
 }
 
-func GetGeneralStatus(status int) string {
-	if status == OnboardingStatusSuccess {
+func GetMintStatus(status int) string {
+	if status == OnboardingStatusMintSuccess {
 		return "Success"
 	}
 
@@ -114,6 +147,22 @@ func GetGeneralStatus(status int) string {
 	}
 
 	if IsPending(status) {
+		return "Pending"
+	}
+
+	return "Unknown"
+}
+
+func GetDisconnectStatus(status int) string {
+	if status == OnboardingStatusBurnSDSuccess {
+		return "Success"
+	}
+
+	if IsFailure(status) {
+		return "Failure"
+	}
+
+	if IsDisconnectPending(status) {
 		return "Pending"
 	}
 
