@@ -215,11 +215,25 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 		return nil, err
 	}
 
+	var integrationOrConnectionID *big.Int
+	ok := false
+	if w.settings.EnableMintingWithConnectionTokenID {
+		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.ConnectionTokenID, 10)
+	} else {
+		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.IntegrationTokenID, 10)
+	}
+
+	if !ok {
+		w.logger.Error().Err(err).Msg("Failed to set integration or connection token ID")
+		record.OnboardingStatus = OnboardingStatusMintFailure
+		return nil, err
+	}
+
 	mintInput := registry.MintVehicleAndSdWithDdInput{
 		Owner:               args.Owner,
 		VehicleOwnerSig:     args.Signature,
 		ManufacturerNode:    new(big.Int).SetUint64(deviceDefinition.Manufacturer.TokenID),
-		IntegrationNode:     new(big.Int).SetInt64(4),
+		IntegrationNode:     integrationOrConnectionID,
 		DeviceDefinitionId:  deviceDefinition.DeviceDefinitionID,
 		SyntheticDeviceAddr: sdAddress,
 		SyntheticDeviceSig:  sdSignature,
@@ -285,7 +299,24 @@ func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels
 		return nil, err
 	}
 
-	sdTypedData := w.tr.GetMintSDTypedData(big.NewInt(4), big.NewInt(record.VehicleTokenID.Int64))
+	var integrationOrConnectionID *big.Int
+	var sdTypedData *signer.TypedData
+
+	ok := false
+	if w.settings.EnableMintingWithConnectionTokenID {
+		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.ConnectionTokenID, 10)
+		sdTypedData = w.tr.GetMintSDTypedDataV2(integrationOrConnectionID, big.NewInt(record.VehicleTokenID.Int64))
+	} else {
+		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.IntegrationTokenID, 10)
+		sdTypedData = w.tr.GetMintSDTypedData(integrationOrConnectionID, big.NewInt(record.VehicleTokenID.Int64))
+	}
+
+	if !ok {
+		w.logger.Error().Err(err).Msg("Failed to set integration or connection token ID")
+		record.OnboardingStatus = OnboardingStatusMintFailure
+		return nil, err
+	}
+
 	sdSignature, err := w.ws.SignTypedData(*sdTypedData, sdIndex.NextVal)
 	if err != nil {
 		w.logger.Error().Err(err).Msg("Failed to sign SD typed data")
@@ -298,7 +329,7 @@ func (w *OnboardingWorker) MintSDAndUpdate(ctx context.Context, record *dbmodels
 		SyntheticDeviceAddr: sdAddress,
 		SyntheticDeviceSig:  sdSignature,
 		AttrInfoPairs:       make([]registry.AttributeInfoPair, 0),
-		IntegrationNode:     big.NewInt(4),
+		IntegrationNode:     integrationOrConnectionID,
 		VehicleNode:         big.NewInt(record.VehicleTokenID.Int64),
 	}
 

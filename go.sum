@@ -70,8 +70,8 @@ github.com/DATA-DOG/go-sqlmock v1.4.1 h1:ThlnYciV1iM/V0OSF/dtkqWb6xo5qITT1TJBG1M
 github.com/DATA-DOG/go-sqlmock v1.4.1/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DIMO-Network/cloudevent v0.0.4 h1:uAACCZtZhdNYomz+enc1c9CZRDNRpau7jJQEwmvd0LA=
 github.com/DIMO-Network/cloudevent v0.0.4/go.mod h1:uY68qV/p18qtbMzLpBCci3QrJzhDPlDt+QcMrh5XY2s=
-github.com/DIMO-Network/go-transactions v0.3.3 h1:2rn0R9ctC/KejGF5zS4Gj4QNQpYQ+JSH3BOgJJ9wZPM=
-github.com/DIMO-Network/go-transactions v0.3.3/go.mod h1:U02LY27YEceF1gR9rr9hA0IcEUbpPnt4jX4CTrLIzfg=
+github.com/DIMO-Network/go-transactions v0.3.4 h1:Sia+vdsyzwSw3HsNSkL0IVGQKmm5nDeGarpz58dCzOE=
+github.com/DIMO-Network/go-transactions v0.3.4/go.mod h1:U02LY27YEceF1gR9rr9hA0IcEUbpPnt4jX4CTrLIzfg=
 github.com/DIMO-Network/go-zerodev v0.4.2 h1:3sQgND3cIeVzMkgO/opbFRZKHcaLdTfm1C+k1f59U5M=
 github.com/DIMO-Network/go-zerodev v0.4.2/go.mod h1:tHy71nqd4Z1QRPgHu7KQlm3/SCuU5sZZ6qGMADOobjI=
 github.com/DIMO-Network/model-garage v0.5.5 h1:2AlHuffXHWduvc/ajtNgr+0GeoNMAeNzSqmIte8xOrQ=

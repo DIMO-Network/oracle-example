@@ -634,10 +634,25 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 					},
 				)
 			} else if dbVin.SyntheticTokenID.IsZero() {
-				typedData = v.tr.GetMintSDTypedData(
-					big.NewInt(4),
-					big.NewInt(dbVin.VehicleTokenID.Int64),
-				)
+
+				var integrationOrConnectionID *big.Int
+				ok := false
+
+				if v.settings.EnableMintingWithConnectionTokenID {
+					integrationOrConnectionID, ok = new(big.Int).SetString(v.settings.ConnectionTokenID, 10)
+					typedData = v.tr.GetMintSDTypedDataV2(integrationOrConnectionID, big.NewInt(dbVin.VehicleTokenID.Int64))
+				} else {
+					integrationOrConnectionID, ok = new(big.Int).SetString(v.settings.IntegrationTokenID, 10)
+					typedData = v.tr.GetMintSDTypedData(integrationOrConnectionID, big.NewInt(dbVin.VehicleTokenID.Int64))
+				}
+
+				if !ok {
+					v.logger.Error().Err(err).Msg("Failed to set integration or connection token ID")
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+						"error": "Failed to set integration or connection token ID",
+					})
+				}
+
 			} else {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 					"error": "VIN already fully minted",
