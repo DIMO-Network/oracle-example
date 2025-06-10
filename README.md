@@ -125,6 +125,8 @@ In the templates folder, there are some thing you may or may not want - things w
 **Non secret settings you'll get from DIMO:**
 - DIMO_AUTH_CLIENT_ID: from the [dev console](https://console.dimo.org) -> Developer License -> Client ID -> copy the 0x address
 - DIMO_AUTH_DOMAIN: whatever your deployment url is eg. dimo-oracle.yourcompany.io
+- CONNECTION_TOKEN_ID: token ID of your connection on chain
+- INTEGRATION_TOKEN_ID: (legacy, deprecated soon) token ID of your integration on chain
 
 **Secrets you'll need to figure out:**
 - DB_HOST: (postgres db)

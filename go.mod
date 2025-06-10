@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/DIMO-Network/cloudevent v0.0.4
-	github.com/DIMO-Network/go-transactions v0.3.3
+	github.com/DIMO-Network/go-transactions v0.3.4
 	github.com/DIMO-Network/go-zerodev v0.4.2
 	github.com/DIMO-Network/model-garage v0.5.5
 	github.com/DIMO-Network/shared v1.0.2

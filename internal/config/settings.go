@@ -69,6 +69,11 @@ type Settings struct {
 	// SD Wallats
 	SDWalletsSeed string `yaml:"SD_WALLETS_SEED"` // should be secret, used for minting Synthetic Devices
 
+	// Minting
+	EnableMintingWithConnectionTokenID bool   `yaml:"ENABLE_MINTING_WITH_CONNECTION_TOKEN_ID"`
+	ConnectionTokenID                  string `yaml:"CONNECTION_TOKEN_ID"`
+	IntegrationTokenID                 string `yaml:"INTEGRATION_TOKEN_ID"`
+
 	// Onboarding - can be useful to disable this for local testing / debugging
 	EnableVendorCapabilityCheck bool `yaml:"ENABLE_VENDOR_CAPABILITY_CHECK"`
 	EnableVendorConnection      bool `yaml:"ENABLE_VENDOR_CONNECTION"`
