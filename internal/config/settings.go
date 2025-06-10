@@ -71,8 +71,8 @@ type Settings struct {
 
 	// Minting
 	EnableMintingWithConnectionTokenID bool   `yaml:"ENABLE_MINTING_WITH_CONNECTION_TOKEN_ID"`
-	ConnectionTokenID                  string `json:"CONNECTION_TOKEN_ID"`
-	IntegrationTokenID                 string `json:"INTEGRATION_TOKEN_ID"`
+	ConnectionTokenID                  string `yaml:"CONNECTION_TOKEN_ID"`
+	IntegrationTokenID                 string `yaml:"INTEGRATION_TOKEN_ID"`
 
 	// Onboarding - can be useful to disable this for local testing / debugging
 	EnableVendorCapabilityCheck bool `yaml:"ENABLE_VENDOR_CAPABILITY_CHECK"`
