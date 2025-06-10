@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/oracle-example
   pullPolicy: IfNotPresent
-  tag: 0.6.0
+  tag: a186d4b
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
@@ -51,8 +51,8 @@ env:
   ENABLE_VENDOR_CAPABILITY_CHECK: true
   ENABLE_VENDOR_CONNECTION: true
   ENABLE_MINTING_WITH_CONNECTION_TOKEN_ID: false
-  CONNECTION_TOKEN_ID: ""
-  INTEGRATION_TOKEN_ID: ""
+  CONNECTION_TOKEN_ID: ''
+  INTEGRATION_TOKEN_ID: ''
 certificate:
   caConfigMap: cae-prod-dimo-ca-certs
 service:
