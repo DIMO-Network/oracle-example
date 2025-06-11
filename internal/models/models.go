@@ -1,9 +1,5 @@
 package models
 
-import (
-	"time"
-)
-
 type GraphQLRequest struct {
 	Query string `json:"query"`
 }
@@ -73,15 +69,6 @@ type Manufacturer struct {
 
 type GraphQlData[T any] struct {
 	Data T `json:"data"`
-}
-
-type UnbufferedMessageValue struct {
-	ID        string    `json:"id"`
-	DataType  string    `json:"dataType"`
-	VehicleID string    `json:"vehicleId"`
-	DeviceID  *string   `json:"deviceId"`
-	Timestamp time.Time `json:"timestamp"`
-	Data      Data      `json:"data"`
 }
 
 type Data struct {

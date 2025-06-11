@@ -36,7 +36,6 @@ require (
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.18.0
 	github.com/volatiletech/strmangle v0.0.8
-	go.uber.org/mock v0.5.0
 	golang.org/x/sync v0.13.0
 	golang.org/x/time v0.11.0
 	gotest.tools/v3 v3.5.2

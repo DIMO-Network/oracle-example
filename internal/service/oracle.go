@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/cloudevent"
 	"github.com/DIMO-Network/oracle-example/internal/config"
-	"github.com/DIMO-Network/oracle-example/internal/convert"
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
-	"github.com/DIMO-Network/oracle-example/internal/models"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -65,20 +63,8 @@ func ParseCloudEvent(msg []byte) (*cloudevent.CloudEvent[json.RawMessage], error
 	}
 
 	// Validate the CloudEvent
-	if telemetry.Subject == "" || telemetry.Producer == "" || telemetry.Type == "" {
-		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, subject: %s, producer: %s, type: %s", telemetry.Subject, telemetry.Producer, telemetry.Type)
-	}
-
-	return &telemetry, nil
-}
-
-func CastToUnbufferedMsg(msg []byte) (*models.UnbufferedMessageValue, error) {
-
-	// Unmarshal into UnbufferedMessageValue struct
-	var telemetry models.UnbufferedMessageValue
-	err := json.Unmarshal(msg, &telemetry)
-	if err != nil {
-		return nil, err
+	if telemetry.Data == nil || telemetry.Type == "" {
+		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, data: %s,, type: %s", telemetry.Data, telemetry.Type)
 	}
 
 	return &telemetry, nil
@@ -95,43 +81,38 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 		return err
 	}
 
-	if !cs.settings.ConvertToCloudEvent {
-		// Attempt to cast the message to a CloudEvent
-		cloudEvent, err := ParseCloudEvent(msgBytes)
+	// Attempt to cast the message to a CloudEvent
+	cloudEvent, err := ParseCloudEvent(msgBytes)
 
-		if err != nil {
-			// Log the error and return
-			cs.logger.Debug().Err(err).Msg("Failed to parse message as CloudEvent.")
-			return err
-		}
-
-		cs.logger.Debug().Msg("Skipping conversion to CloudEvent as ConvertToCloudEvent is false")
-		return cs.HandleSendToDIS(cloudEvent)
-	}
-
-	unbufferedMsg, err := CastToUnbufferedMsg(msgBytes)
 	if err != nil {
+		// Log the error and return
+		cs.logger.Debug().Err(err).Msg("Failed to parse message as CloudEvent.")
 		return err
 	}
-
-	// Print all fields of unbufferedMsg as JSON
-	jsonData, err := json.Marshal(unbufferedMsg)
-	if err != nil {
-		cs.logger.Error().Err(err).Msg("Failed to marshal UnbufferedMessageValue to JSON")
-		return err
-	}
-	cs.logger.Debug().Msgf("UnbufferedMessageValue as JSON: %s", string(jsonData))
 
 	// Query GetDeviceByVIN function
 	var dBVehicle interface{}
-	vehicleID := unbufferedMsg.VehicleID
+
+	// Parse the JSON into a map
+	var data map[string]interface{}
+	err = json.Unmarshal(cloudEvent.Data, &data)
+	if err != nil {
+		cs.logger.Err(err).Msg("Failed to unmarshal JSON")
+	}
+	// Extract the VIN field
+	vin, ok := data["vin"].(string)
+	if !ok {
+		cs.logger.Error().Msgf("VIN not found in the message data for CloudEvent ID: %s", cloudEvent.ID)
+	}
+
+	vehicleID := vin
 	cachedResponse, found := cs.cache.Get(vehicleID)
 	if found {
 		cs.logger.Debug().Msgf("Cache hit for vehicleID: %s", vehicleID)
 		dBVehicle = cachedResponse
 	} else {
 		cs.logger.Debug().Msgf("Cache miss for vehicleID: %s", vehicleID)
-		response, err := cs.Db.GetVehicleByExternalID(cs.Ctx, unbufferedMsg.VehicleID)
+		response, err := cs.Db.GetVehicleByVin(cs.Ctx, vehicleID)
 		if err != nil {
 			failedStatusEventCntr.Inc()
 			cs.logger.Error().Err(err).Msgf("Error querying vehicle by vehicleID: %s", vehicleID)
@@ -142,26 +123,13 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	}
 	vehicle := dBVehicle.(*dbmodels.Vin)
 
-	if vehicle.ConnectionStatus.String != "succeeded" {
-		cs.logger.Debug().Msgf("Device connection status is not succeeded for VIN: %s", vehicle.Vin)
-		return nil
-	}
-
 	if vehicle != nil && vehicle.VehicleTokenID.Int64 == 0 {
 		cs.logger.Debug().Msgf("Vehicle token ID is 0 for VIN: %s , do not send to DIS", vehicle.Vin)
 		return nil
 	}
 
-	// Create the CloudEvent
-	event, err := convert.ToCloudEvent(*vehicle, *unbufferedMsg, cs.settings)
-	if err != nil {
-		failedStatusEventCntr.Inc()
-		cs.logger.Error().Err(err).Msg("Failed to convert message to CloudEvent")
-		return err
-	}
-
 	// Send the DISEvent to the Dimo Node
-	return cs.HandleSendToDIS(event)
+	return cs.HandleSendToDIS(cloudEvent)
 }
 
 func (cs *OracleService) HandleSendToDIS(ce *cloudevent.CloudEvent[json.RawMessage]) error {

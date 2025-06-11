@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-const vin = "1HGCM82633A123456"
+const vin = "1GGCM82633A123456"
 
 type OracleTestSuite struct {
 	suite.Suite
@@ -66,29 +66,27 @@ func TestOracleTestSuite(t *testing.T) {
 	suite.Run(t, new(OracleTestSuite))
 }
 
-var unbufferedMsg = `{
-		"id": "01965837-7540-71fb-acc4-60264bfd17b4",
-		"dataType": "telemetry",
-		"vehicleId": "ffbf0b52-d478-4320-9a1c-3b83f547f33b",
-		"deviceId": null,
-		"timestamp": "2025-04-21T11:58:00.619Z",
-		"data": {
-			"location": {
-				"lat": 36.5810399,
-				"lon": -79.43646179999999
-			},
-			"speed": {
-				"value": 0,
-				"signalType": "canBus",
-				"units": "mph"
-			},
-			"odometer": {
-				"value": 27071.65,
-				"signalType": "canBus",
-				"units": "mi"
-			}
-		}
-	}`
+var validCloudEventMsgNoProduceAndSubject = `{
+  "id": "feeb4ceb-c2bb-42ee-bd01-b6024c2c391b",
+  "source": "0xb83DE952D389f9A6806819434450324197712FDA",
+  "producer": "",
+  "specversion": "1.0",
+  "subject": "",
+  "time": "2025-03-04T12:00:00Z",
+  "type": "dimo.status",
+  "datacontenttype": "application/json",
+  "dataversion": "default/v1.0",
+  "data": {
+    "signals": [
+      {
+        "name": "speed",
+        "timestamp": "2025-03-04T12:01:00Z",
+        "value": 55
+      }
+    ],
+    "vin": "1GGCM82633A123456"
+  }
+}`
 
 var validCloudEventMsg = `{
 	  "id": "unique-event-identifier",
@@ -145,7 +143,6 @@ func (s *OracleTestSuite) TestDeviceMinted() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
-	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
@@ -161,7 +158,7 @@ func (s *OracleTestSuite) TestDeviceMinted() {
 	oracleService.identityService = mockService
 
 	// then
-	err := oracleService.HandleDeviceByVIN([]byte(unbufferedMsg))
+	err := oracleService.HandleDeviceByVIN([]byte(validCloudEventMsgNoProduceAndSubject))
 
 	// verify
 	require.NoError(s.T(), err)
@@ -174,12 +171,11 @@ func (s *OracleTestSuite) TestDeviceNotFound() {
 
 	oracleService := setupOracleService(server.URL)
 	oracleService.Db = s.cs.Db
-	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 
 	// then
-	err := oracleService.HandleDeviceByVIN([]byte(unbufferedMsg))
+	err := oracleService.HandleDeviceByVIN([]byte(validCloudEventMsgNoProduceAndSubject))
 
 	// verify
 	require.Error(s.T(), err)
@@ -197,14 +193,13 @@ func (s *OracleTestSuite) TestDeviceNotMinted() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
-	oracleService.settings.ConvertToCloudEvent = true
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
 
 	// then
 	// should not send msg to DIS but not fail
-	err := oracleService.HandleDeviceByVIN([]byte(unbufferedMsg))
+	err := oracleService.HandleDeviceByVIN([]byte(validCloudEventMsgNoProduceAndSubject))
 
 	// verify
 	require.NoError(s.T(), err)
@@ -222,7 +217,6 @@ func (s *OracleTestSuite) TestDeviceSendValidCloudEvent() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
-	oracleService.settings.ConvertToCloudEvent = false
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
@@ -247,7 +241,6 @@ func (s *OracleTestSuite) TestDeviceSendInvalidCloudEvent() {
 		ExternalID:       null.StringFrom("ffbf0b52-d478-4320-9a1c-3b83f547f33b"),
 		ConnectionStatus: null.StringFrom("succeeded"),
 	}
-	oracleService.settings.ConvertToCloudEvent = false
 
 	// when
 	require.NoError(s.T(), dbVin.Insert(s.ctx, s.pdb.DBS().Writer, boil.Infer()))
