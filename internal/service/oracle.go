@@ -64,7 +64,7 @@ func ParseCloudEvent(msg []byte) (*cloudevent.CloudEvent[json.RawMessage], error
 
 	// Validate the CloudEvent
 	if telemetry.Data == nil || telemetry.Type == "" {
-		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, data: %s,, type: %s", telemetry.Data, telemetry.Type)
+		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, data: %s, type: %s", telemetry.Data, telemetry.Type)
 	}
 
 	return &telemetry, nil
