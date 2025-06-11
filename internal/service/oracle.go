@@ -103,6 +103,7 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	vin, ok := data["vin"].(string)
 	if !ok {
 		cs.logger.Error().Msgf("VIN not found in the message data for CloudEvent ID: %s", cloudEvent.ID)
+		return fmt.Errorf("VIN is missing in the message data for CloudEvent ID: %s", cloudEvent.ID)
 	}
 
 	vehicleID := vin
