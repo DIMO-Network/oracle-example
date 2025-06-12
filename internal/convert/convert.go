@@ -41,7 +41,12 @@ func SetProducerAndSubject(veh dbmodels.Vin, ce *cloudevent.CloudEvent[json.RawM
 // ValidateSignals validates the signals from the message
 func ValidateSignals(signals interface{}, logger zerolog.Logger) error {
 
-	signalsArr := signals.([]interface{})
+	signalsArr, ok := signals.([]interface{})
+	if !ok {
+		err := fmt.Errorf("signals is not of type []interface{}")
+		logger.Error().Err(err).Msg("Invalid type for signals")
+		return err
+	}
 
 	signalArray, err := CastToSliceOfMaps(signalsArr)
 	if err != nil {
