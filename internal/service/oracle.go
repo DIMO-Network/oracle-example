@@ -64,7 +64,7 @@ func ParseCloudEvent(msg []byte) (*cloudevent.CloudEvent[json.RawMessage], error
 
 	// Validate the CloudEvent
 	if telemetry.Data == nil || telemetry.Type == "" {
-		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, data: %s,, type: %s", telemetry.Data, telemetry.Type)
+		return nil, fmt.Errorf("invalid CloudEvent: missing required fields, data: %s, type: %s", telemetry.Data, telemetry.Type)
 	}
 
 	return &telemetry, nil
@@ -103,6 +103,7 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	vin, ok := data["vin"].(string)
 	if !ok {
 		cs.logger.Error().Msgf("VIN not found in the message data for CloudEvent ID: %s", cloudEvent.ID)
+		return fmt.Errorf("VIN is missing in the message data for CloudEvent ID: %s", cloudEvent.ID)
 	}
 
 	vehicleID := vin
