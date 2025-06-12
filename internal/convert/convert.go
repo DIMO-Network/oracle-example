@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// mapDataToSignals maps the data from the message to the default DIS signals
-func mapDataToSignals(data models.Data, ts time.Time) ([]*defaultmodule.Signal, error) {
+// MapDataToSignals maps the data from the message to the default DIS signals
+func MapDataToSignals(data models.Data, ts time.Time) ([]*defaultmodule.Signal, error) {
 	var signals []*defaultmodule.Signal
 
 	sigMap, err := defaultmodule.LoadSignalMap()
