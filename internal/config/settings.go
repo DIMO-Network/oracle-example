@@ -35,11 +35,10 @@ type Settings struct {
 	UnbufferedTelemetryConsumerGroup string `yaml:"UNBUFFERED_TELEMETRY_CONSUMER_GROUP"`
 
 	// DIS - DIMO Ingest Service
-	ConvertToCloudEvent bool   `yaml:"CONVERT_TO_CLOUD_EVENT"` // if true, telemetry is converted to cloud events before sending to DIS
-	DimoNodeEndpoint    string `yaml:"DIMO_NODE_ENDPOINT"`
-	Cert                string `yaml:"CERT"`     // should be secrets
-	CertKey             string `yaml:"CERT_KEY"` // should be secrets
-	CACert              string `yaml:"CA_CERT"`  // DIMO Root CA, same for everybody
+	DimoNodeEndpoint string `yaml:"DIMO_NODE_ENDPOINT"`
+	Cert             string `yaml:"CERT"`     // should be secrets
+	CertKey          string `yaml:"CERT_KEY"` // should be secrets
+	CACert           string `yaml:"CA_CERT"`  // DIMO Root CA, same for everybody
 
 	// Chain - These are standard Polygon values for DIMO
 	ChainID             int64          `yaml:"CHAIN_ID"`
