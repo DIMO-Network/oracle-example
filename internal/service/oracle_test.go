@@ -8,6 +8,7 @@ import (
 	"github.com/DIMO-Network/oracle-example/internal/models"
 	"github.com/DIMO-Network/oracle-example/internal/test"
 	"github.com/DIMO-Network/shared/pkg/db"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/patrickmn/go-cache"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -274,7 +275,9 @@ func setupOracleService(serverURL string) *OracleService {
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr})
 	dn := prepare(serverURL + "/status")
 	identityURL, _ := url.Parse("https://identity-api.dimo.zone/query")
-	settings := config.Settings{IdentityAPIEndpoint: *identityURL}
+	settings := config.Settings{IdentityAPIEndpoint: *identityURL, ChainID: 1,
+		VehicleNftAddress:   common.HexToAddress("0x123456789abcdef0123456789abcdef012345678"),
+		SyntheticNftAddress: common.HexToAddress("0x123456789abcdef0123456789abcdef012345678")}
 	c := cache.New(10*time.Minute, 15*time.Minute)
 	cs := &OracleService{
 		Ctx:             context.Background(),

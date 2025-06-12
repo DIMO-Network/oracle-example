@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/DIMO-Network/cloudevent"
 	"github.com/DIMO-Network/oracle-example/internal/config"
+	"github.com/DIMO-Network/oracle-example/internal/convert"
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
@@ -93,7 +94,6 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	// Query GetDeviceByVIN function
 	var dBVehicle interface{}
 
-	// Parse the JSON into a map
 	var data map[string]interface{}
 	err = json.Unmarshal(cloudEvent.Data, &data)
 	if err != nil {
@@ -102,8 +102,13 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	// Extract the VIN field
 	vin, ok := data["vin"].(string)
 	if !ok {
-		cs.logger.Error().Msgf("VIN not found in the message data for CloudEvent ID: %s", cloudEvent.ID)
 		return fmt.Errorf("VIN is missing in the message data for CloudEvent ID: %s", cloudEvent.ID)
+	}
+
+	// Validate signals
+	err = validateSignals(data, vin, cs.logger)
+	if err != nil {
+		return err
 	}
 
 	vehicleID := vin
@@ -129,6 +134,9 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 		return nil
 	}
 
+	// Set the producer DID and subject for the CloudEvent
+	convert.SetProducerAndSubject(*vehicle, cloudEvent, cs.settings)
+
 	// Send the DISEvent to the Dimo Node
 	return cs.HandleSendToDIS(cloudEvent)
 }
@@ -151,6 +159,20 @@ func (cs *OracleService) HandleSendToDIS(ce *cloudevent.CloudEvent[json.RawMessa
 
 	successStatusEventCntr.Inc()
 	cs.logger.Debug().Msg("Successfully sent event to Dimo Node")
+	return nil
+}
+
+func validateSignals(data map[string]interface{}, vin string, logger zerolog.Logger) error {
+	signals, ok := data["signals"]
+	if !ok {
+		return fmt.Errorf("signals are missing in the message data for VIN: %s", vin)
+	}
+
+	err := convert.ValidateSignals(signals, logger)
+	if err != nil {
+		logger.Err(err).Msg("Failed to validate signals in CloudEvent")
+		return err
+	}
 	return nil
 }
 
