@@ -137,7 +137,7 @@ In the templates folder, there are some thing you may or may not want - things w
 
 - RPC_URL: ethereum compatible RPC. Create an account if you don't have one already, we've had good luck with https://www.alchemy.com & their free tier is likely more than enough for this. Be sure to have Polygon Enabled.
 - PAYMASTER_URL: create account in https://dashboard.zerodev.app -> Just login with eg. google if you don't have an account, then Create Project. Enable Polygon mainnet. For some Oracles we may sponsor, discuss with your DIMO contact.
-- BUNDLER_URL: also from https://zerodev.app
+- BUNDLER_URL: same as the PAYMASTER_URL
 
 ### Installing once you're ready
 
