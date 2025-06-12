@@ -98,6 +98,7 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	err = json.Unmarshal(cloudEvent.Data, &data)
 	if err != nil {
 		cs.logger.Err(err).Msg("Failed to unmarshal JSON")
+		return err
 	}
 	// Extract the VIN field
 	vin, ok := data["vin"].(string)
