@@ -136,7 +136,10 @@ func (cs *OracleService) HandleDeviceByVIN(msg interface{}) error {
 	}
 
 	// Set the producer DID and subject for the CloudEvent
-	convert.SetProducerAndSubject(*vehicle, cloudEvent, cs.settings)
+	err = convert.SetProducerAndSubject(*vehicle, cloudEvent, cs.settings)
+	if err != nil {
+		return err
+	}
 
 	// Send the DISEvent to the Dimo Node
 	return cs.HandleSendToDIS(cloudEvent)
