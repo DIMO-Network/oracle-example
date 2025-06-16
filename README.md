@@ -47,6 +47,8 @@ or require the user to input something specific to that vehicle or PIN code etc.
 4. Obtain the required Synthetic Device Minting roles - engineers at DIMO will do this for you.
 5. Create an Account Abstracted wallet with zerodev, we'll call this the Developer AA Wallet - engineers at DIMO can do this for you. Future state will be in Console.
 6. Fund your Developer AA Wallet with some DCX. You can do this from the DIMO Dev Console. Required for the minting operations.
+7. After you install the Oracle and have it running on a public URL, eg. `https://dimo.mycompany.com`, copy it and add it to the Authorized URL's in the [DIMO Console](https://console.dimo.org)
+   Authorized Redirect URIs are under the "License Details" section.
 
 ## Onboarding
 
@@ -145,6 +147,9 @@ Once you have everything ready ready, from the root you can just install with ty
 ```shell
 helm install <release-name eg. my-dimo-oracle> ./charts/oracle-example -f values.yaml
 ```
+
+Don't forget to do step number 7 [above](# Implementing your Oracle) to add your Oracle's URL to the Authorized URI's 
+section in the [DIMO Console](https://console.dimo.org).
 
 
 
