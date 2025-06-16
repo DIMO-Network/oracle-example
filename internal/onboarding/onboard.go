@@ -207,14 +207,6 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 		return nil, err
 	}
 
-	sdTypedData := w.tr.GetMintVehicleAndSDTypedData(new(big.Int).SetInt64(4))
-	sdSignature, err := w.ws.SignTypedData(*sdTypedData, sdIndex.NextVal)
-	if err != nil {
-		w.logger.Error().Err(err).Msg("Failed to sign SD typed data")
-		record.OnboardingStatus = OnboardingStatusMintFailure
-		return nil, err
-	}
-
 	var integrationOrConnectionID *big.Int
 	ok := false
 	if w.settings.EnableMintingWithConnectionTokenID {
@@ -225,6 +217,14 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 
 	if !ok {
 		w.logger.Error().Err(err).Msg("Failed to set integration or connection token ID")
+		record.OnboardingStatus = OnboardingStatusMintFailure
+		return nil, err
+	}
+
+	sdTypedData := w.tr.GetMintVehicleAndSDTypedData(integrationOrConnectionID)
+	sdSignature, err := w.ws.SignTypedData(*sdTypedData, sdIndex.NextVal)
+	if err != nil {
+		w.logger.Error().Err(err).Msg("Failed to sign SD typed data")
 		record.OnboardingStatus = OnboardingStatusMintFailure
 		return nil, err
 	}
