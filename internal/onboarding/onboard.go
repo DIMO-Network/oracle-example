@@ -208,11 +208,15 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 	}
 
 	var integrationOrConnectionID *big.Int
+	var sdTypedData *signer.TypedData
+
 	ok := false
 	if w.settings.EnableMintingWithConnectionTokenID {
 		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.ConnectionTokenID, 10)
+		sdTypedData = w.tr.GetMintVehicleAndSDTypedDataV2(integrationOrConnectionID)
 	} else {
 		integrationOrConnectionID, ok = new(big.Int).SetString(w.settings.IntegrationTokenID, 10)
+		sdTypedData = w.tr.GetMintVehicleAndSDTypedData(integrationOrConnectionID)
 	}
 
 	if !ok {
@@ -221,7 +225,6 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 		return nil, err
 	}
 
-	sdTypedData := w.tr.GetMintVehicleAndSDTypedData(integrationOrConnectionID)
 	sdSignature, err := w.ws.SignTypedData(*sdTypedData, sdIndex.NextVal)
 	if err != nil {
 		w.logger.Error().Err(err).Msg("Failed to sign SD typed data")
