@@ -579,7 +579,7 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 			validVins,
 			onboarding.OnboardingStatusVendorValidationSuccess,
 			onboarding.OnboardingStatusMintFailure,
-			[]int{onboarding.OnboardingStatusBurnSDSuccess},
+			[]int{onboarding.OnboardingStatusBurnSDSuccess, onboarding.OnboardingStatusBurnVehicleSuccess},
 		)
 		if err != nil {
 			if errors.Is(err, service.ErrVehicleNotFound) {
@@ -1238,10 +1238,10 @@ func (v *VehicleController) canSubmitDisconnectJob(record *dbmodels.Vin) bool {
 	}
 
 	minted := onboarding.IsMinted(record.OnboardingStatus)
-	failed := onboarding.IsFailure(record.OnboardingStatus)
+	failed := onboarding.IsDisconnectFailed(record.OnboardingStatus)
 	pending := onboarding.IsDisconnectPending(record.OnboardingStatus)
 
-	return minted && (failed || !pending)
+	return (minted || failed) && !pending
 }
 
 func (v *VehicleController) GetDisconnectStatusForVins(c *fiber.Ctx) error {

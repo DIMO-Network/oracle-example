@@ -374,6 +374,14 @@ func (w *OnboardingWorker) ConnectToVendorAndUpdate(ctx context.Context, record 
 		w.logger.Debug().Str(logfields.VIN, args.VIN).Interface("connection-result", connection).Msg("Vendor connected")
 	} else {
 		w.logger.Debug().Str(logfields.VIN, args.VIN).Msg("Vendor connection is disabled, skipping")
+		record.ConnectionStatus = null.String{String: "succeeded", Valid: true}
+		record.DisconnectionStatus = null.String{String: "", Valid: false}
+		err := w.update(ctx, record, args, boil.Whitelist(dbmodels.VinColumns.ConnectionStatus, dbmodels.VinColumns.DisconnectionStatus))
+		if err != nil {
+			w.logger.Error().Err(err).Msg("Failed to update connection status")
+			record.OnboardingStatus = OnboardingStatusConnectFailure
+			return nil, err
+		}
 	}
 
 	record.OnboardingStatus = OnboardingStatusConnectSuccess

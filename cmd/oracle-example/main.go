@@ -174,6 +174,7 @@ func createRiverClientWithWorkersAndPool(ctx context.Context, logger zerolog.Log
 	verifyWorker := onboarding.NewVerifyWorker(settings, logger, identityService, dd, os, dbs, onboardingService)
 	onboardingWorker := onboarding.NewOnboardingWorker(settings, logger, identityService, dbs, tr, ws, onboardingService)
 	disconnectWorker := onboarding.NewDisconnectWorker(settings, logger, identityService, dbs, tr, ws, onboardingService)
+	deleteWorker := onboarding.NewDeleteWorker(settings, logger, identityService, dbs, tr, ws, onboardingService)
 
 	err := river.AddWorkerSafely(workers, verifyWorker)
 	if err != nil {
@@ -195,6 +196,13 @@ func createRiverClientWithWorkersAndPool(ctx context.Context, logger zerolog.Log
 		return nil, nil, nil, err
 	}
 	logger.Debug().Msg("Added disconnect worker")
+
+	err = river.AddWorkerSafely(workers, deleteWorker)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("failed to add delete worker")
+		return nil, nil, nil, err
+	}
+	logger.Debug().Msg("Added delete worker")
 
 	dbURL := settings.DB.BuildConnectionString(true)
 	dbPool, err := pgxpool.New(ctx, dbURL)
