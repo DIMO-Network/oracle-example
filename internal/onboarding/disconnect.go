@@ -125,6 +125,15 @@ func (w *DisconnectWorker) DisconnectFromVendorAndUpdate(ctx context.Context, re
 			return nil, err
 		}
 
+		record.DisconnectionStatus = null.String{String: "succeeded", Valid: true}
+		record.ConnectionStatus = null.String{String: "", Valid: false}
+		err = w.update(ctx, record, args, boil.Whitelist(dbmodels.VinColumns.ConnectionStatus, dbmodels.VinColumns.DisconnectionStatus))
+		if err != nil {
+			w.logger.Error().Err(err).Msg("Failed to update disconnection status")
+			record.OnboardingStatus = OnboardingStatusConnectFailure
+			return nil, err
+		}
+
 		w.logger.Debug().Str(logfields.VIN, args.VIN).Interface("disconnection-result", connection).Msg("Vendor disconnected")
 	} else {
 		w.logger.Debug().Str(logfields.VIN, args.VIN).Msg("Vendor connection is disabled, skipping")

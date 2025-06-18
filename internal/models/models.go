@@ -5,13 +5,15 @@ type GraphQLRequest struct {
 }
 
 type Vehicle struct {
-	VIN             string          `json:"vin"`
-	ID              string          `json:"id"`
-	TokenID         int64           `json:"tokenId"`
-	MintedAt        string          `json:"mintedAt"`
-	Owner           string          `json:"owner"`
-	Definition      Definition      `json:"definition"`
-	SyntheticDevice SyntheticDevice `json:"syntheticDevice"`
+	VIN                 string          `json:"vin"`
+	ID                  string          `json:"id"`
+	TokenID             int64           `json:"tokenId"`
+	MintedAt            string          `json:"mintedAt"`
+	Owner               string          `json:"owner"`
+	Definition          Definition      `json:"definition"`
+	SyntheticDevice     SyntheticDevice `json:"syntheticDevice"`
+	ConnectionStatus    string          `json:"connectionStatus"`
+	DisconnectionStatus string          `json:"disconnectionStatus"`
 }
 
 type SyntheticDevice struct {

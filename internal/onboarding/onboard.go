@@ -77,11 +77,19 @@ func NewTransactionsClient(settings *config.Settings) (*transactions.Client, err
 	return transactionsClient, nil
 }
 
+type OnboardingSacd struct {
+	Grantee     common.Address
+	Permissions *big.Int
+	Expiration  *big.Int
+	Source      string
+}
+
 type OnboardingArgs struct {
-	Owner     common.Address   `json:"owner"`
-	VIN       string           `json:"vin"`
-	TypedData signer.TypedData `json:"typedData"`
-	Signature hexutil.Bytes    `json:"signature"`
+	Owner     common.Address    `json:"owner"`
+	VIN       string            `json:"vin"`
+	TypedData *signer.TypedData `json:"typedData"`
+	Signature hexutil.Bytes     `json:"signature"`
+	Sacd      *OnboardingSacd   `json:"sacd,omitempty"`
 }
 
 func (a OnboardingArgs) Kind() string {
@@ -137,7 +145,7 @@ func (w *OnboardingWorker) Work(ctx context.Context, job *river.Job[OnboardingAr
 	}
 
 	// Check onboarding status, if successful, just return
-	if record.OnboardingStatus == OnboardingStatusMintSuccess {
+	if record.OnboardingStatus == OnboardingStatusMintSuccess && record.ConnectionStatus.String != "failed" {
 		return nil
 	}
 
@@ -160,6 +168,12 @@ func (w *OnboardingWorker) Work(ctx context.Context, job *river.Job[OnboardingAr
 	if !record.SyntheticTokenID.Valid {
 		w.logger.Debug().Str(logfields.VIN, job.Args.VIN).Msg("No Synthetic Device Token ID, minting SD")
 		_, err = w.MintSDAndUpdate(ctx, record, job.Args)
+		if err != nil {
+			return err
+		}
+	} else {
+		record.OnboardingStatus = OnboardingStatusMintSuccess
+		err = w.update(ctx, record, job.Args, boil.Whitelist(dbmodels.VinColumns.OnboardingStatus))
 		if err != nil {
 			return err
 		}
@@ -259,20 +273,47 @@ func (w *OnboardingWorker) MintVehicleWithSDAndUpdate(ctx context.Context, recor
 	w.logger.Debug().Str(logfields.VIN, args.VIN).Str(logfields.FunctionName, "MintVehicleWithSDAndUpdate").
 		Interface("mintInput", mintInput).Msg("Minting Vehicle with SD Input")
 
-	w.m.Lock()
-	_, result, err := w.tr.MintVehicleAndSDWithDD(&mintInput, true, true)
-	if err != nil {
+	if args.Sacd == nil {
+		w.m.Lock()
+		_, result, err := w.tr.MintVehicleAndSDWithDD(&mintInput, true, true)
+		if err != nil {
+			w.m.Unlock()
+			w.logger.Error().Err(err).Msg("Failed to mint vehicle and SD")
+			record.OnboardingStatus = OnboardingStatusMintFailure
+			return nil, err
+		}
 		w.m.Unlock()
-		w.logger.Error().Err(err).Msg("Failed to mint vehicle and SD")
-		record.OnboardingStatus = OnboardingStatusMintFailure
-		return nil, err
-	}
-	w.m.Unlock()
 
-	record.WalletIndex = null.Int64From(int64(sdIndex.NextVal))
-	record.VehicleTokenID = null.Int64From(result.VehicleId.Int64())
-	record.SyntheticTokenID = null.Int64From(result.SyntheticDeviceNode.Int64())
-	record.OnboardingStatus = OnboardingStatusMintSuccess
+		record.WalletIndex = null.Int64From(int64(sdIndex.NextVal))
+		record.VehicleTokenID = null.Int64From(result.VehicleId.Int64())
+		record.SyntheticTokenID = null.Int64From(result.SyntheticDeviceNode.Int64())
+		record.OnboardingStatus = OnboardingStatusMintSuccess
+	} else {
+		sacdInput := registry.SacdInput{
+			Grantee:     args.Sacd.Grantee,
+			Permissions: args.Sacd.Permissions,
+			Expiration:  args.Sacd.Expiration,
+		}
+
+		w.logger.Debug().Str(logfields.VIN, args.VIN).Str(logfields.FunctionName, "MintVehicleWithSDAndUpdate").
+			Interface("sacd", sacdInput).Msg("SACD provided")
+
+		w.m.Lock()
+
+		_, result, err := w.tr.MintVehicleAndSDWithDDAndSACD(&mintInput, sacdInput, true, true)
+		if err != nil {
+			w.m.Unlock()
+			w.logger.Error().Err(err).Msg("Failed to mint vehicle and SD and SACD")
+			record.OnboardingStatus = OnboardingStatusMintFailure
+			return nil, err
+		}
+		w.m.Unlock()
+
+		record.WalletIndex = null.Int64From(int64(sdIndex.NextVal))
+		record.VehicleTokenID = null.Int64From(result.VehicleId.Int64())
+		record.SyntheticTokenID = null.Int64From(result.SyntheticDeviceNode.Int64())
+		record.OnboardingStatus = OnboardingStatusMintSuccess
+	}
 
 	w.logger.Debug().Str(logfields.VIN, args.VIN).Int64(logfields.VehicleTokenID, record.VehicleTokenID.Int64).Msg("Vehicle minted")
 	w.logger.Debug().Str(logfields.VIN, args.VIN).Int64("syntheticDeviceTokenId", record.SyntheticTokenID.Int64).Msg("SD minted")
@@ -367,6 +408,15 @@ func (w *OnboardingWorker) ConnectToVendorAndUpdate(ctx context.Context, record 
 		connection, err := w.vendor.Connect([]string{args.VIN})
 		if err != nil {
 			w.logger.Error().Err(err).Msg("Failed to connect to vendor")
+			record.OnboardingStatus = OnboardingStatusConnectFailure
+			return nil, err
+		}
+
+		record.ConnectionStatus = null.String{String: "succeeded", Valid: true}
+		record.DisconnectionStatus = null.String{String: "", Valid: false}
+		err = w.update(ctx, record, args, boil.Whitelist(dbmodels.VinColumns.ConnectionStatus, dbmodels.VinColumns.DisconnectionStatus))
+		if err != nil {
+			w.logger.Error().Err(err).Msg("Failed to update connection status")
 			record.OnboardingStatus = OnboardingStatusConnectFailure
 			return nil, err
 		}

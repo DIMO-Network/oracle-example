@@ -95,17 +95,17 @@ func (ds *Vehicle) GetVehiclesByVins(ctx context.Context, vehicleIDs []string) (
 func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatus(ctx context.Context, vehicleIDs []string, status int) (dbmodels.VinSlice, error) {
 	tx, err := ds.pdb.DBS().Writer.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
-		ds.logger.Error().Err(err).Msg("GetVehiclesByVins: Failed to begin transaction for vehicles")
+		ds.logger.Error().Err(err).Msg("GetVehiclesByVinsAndOnboardingStatus: Failed to begin transaction for vehicles")
 		return nil, err
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
-				ds.logger.Error().Err(rbErr).Msgf("GetVehiclesByVins: Failed to rollback transaction for vehicles")
+				ds.logger.Error().Err(rbErr).Msgf("GetVehiclesByVinsAndOnboardingStatus: Failed to rollback transaction for vehicles")
 			}
 		} else {
 			if cmErr := tx.Commit(); cmErr != nil {
-				ds.logger.Error().Err(cmErr).Msgf("GetVehiclesByVins: Failed to commit transaction for vehicles")
+				ds.logger.Error().Err(cmErr).Msgf("GetVehiclesByVinsAndOnboardingStatus: Failed to commit transaction for vehicles")
 			}
 		}
 	}()
@@ -118,7 +118,7 @@ func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatus(ctx context.Context, veh
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrVehicleNotFound
 		}
-		ds.logger.Error().Err(err).Msgf("GetVehiclesByVins: Failed to check if vehicles have been processed")
+		ds.logger.Error().Err(err).Msgf("GetVehiclesByVinsAndOnboardingStatus: Failed to fetch vehicles")
 		return nil, err
 	}
 
@@ -128,17 +128,17 @@ func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatus(ctx context.Context, veh
 func (ds *Vehicle) GetVehiclesByVinsAndOnboardingStatusRange(ctx context.Context, vehicleIDs []string, minStatus, maxStatus int, additionalStatuses []int) (dbmodels.VinSlice, error) {
 	tx, err := ds.pdb.DBS().Writer.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
-		ds.logger.Error().Err(err).Msg("GetVehiclesByVins: Failed to begin transaction for vehicles")
+		ds.logger.Error().Err(err).Msg("GetVehiclesByVinsAndOnboardingStatusRange: Failed to begin transaction for vehicles")
 		return nil, err
 	}
 	defer func() {
 		if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
-				ds.logger.Error().Err(rbErr).Msgf("GetVehiclesByVins: Failed to rollback transaction for vehicles")
+				ds.logger.Error().Err(rbErr).Msgf("GetVehiclesByVinsAndOnboardingStatusRange: Failed to rollback transaction for vehicles")
 			}
 		} else {
 			if cmErr := tx.Commit(); cmErr != nil {
-				ds.logger.Error().Err(cmErr).Msgf("GetVehiclesByVins: Failed to commit transaction for vehicles")
+				ds.logger.Error().Err(cmErr).Msgf("GetVehiclesByVinsAndOnboardingStatusRange: Failed to commit transaction for vehicles")
 			}
 		}
 	}()
