@@ -7,6 +7,7 @@ import (
 	registry "github.com/DIMO-Network/go-transactions/contracts"
 	"github.com/DIMO-Network/go-zerodev"
 	"github.com/DIMO-Network/oracle-example/internal/config"
+	"github.com/DIMO-Network/oracle-example/internal/kafka"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	signer "github.com/ethereum/go-ethereum/signer/core/apitypes"
@@ -115,6 +116,8 @@ func (v *VehicleController) GetVehicles(c *fiber.Ctx) error {
 		}
 
 		vehicle.VIN = vin.Vin
+		vehicle.ConnectionStatus = vin.ConnectionStatus.String
+		vehicle.DisconnectionStatus = vin.DisconnectionStatus.String
 		returnVehicles = append(returnVehicles, vehicle)
 	}
 
@@ -579,7 +582,7 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 			validVins,
 			onboarding.OnboardingStatusVendorValidationSuccess,
 			onboarding.OnboardingStatusMintFailure,
-			[]int{onboarding.OnboardingStatusBurnSDSuccess},
+			[]int{onboarding.OnboardingStatusBurnSDSuccess, onboarding.OnboardingStatusBurnVehicleSuccess},
 		)
 		if err != nil {
 			if errors.Is(err, service.ErrVehicleNotFound) {
@@ -590,6 +593,28 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 				"error": "Failed to load vehicles from Database",
 			})
 		}
+
+		mintedVins, err := v.vs.GetVehiclesByVinsAndOnboardingStatus(
+			c.Context(),
+			validVins,
+			onboarding.OnboardingStatusMintSuccess,
+		)
+		if err != nil {
+			if !errors.Is(err, service.ErrVehicleNotFound) {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to load vehicles from Database",
+				})
+			}
+		}
+
+		vendorFailedMintedVins := make(dbmodels.VinSlice, 0, len(mintedVins))
+		for _, vin := range mintedVins {
+			if vin.ConnectionStatus.String == "failed" {
+				vendorFailedMintedVins = append(vendorFailedMintedVins, vin)
+			}
+		}
+
+		dbVins = append(dbVins, vendorFailedMintedVins...)
 
 		if len(dbVins) != len(validVins) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -654,14 +679,19 @@ func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
 				}
 
 			} else {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error": "VIN already fully minted",
-				})
+				if dbVin.ConnectionStatus.String != kafka.OperationStatusFailed {
+					return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+						"error": "VIN already fully minted and connected or connection in progress",
+					})
+				}
 			}
 
 			vinMintingData := VinTransactionData{
-				Vin:       dbVin.Vin,
-				TypedData: *typedData,
+				Vin: dbVin.Vin,
+			}
+
+			if typedData != nil {
+				vinMintingData.TypedData = typedData
 			}
 
 			mintingData = append(mintingData, vinMintingData)
@@ -681,9 +711,9 @@ type SacdInput struct {
 }
 
 type VinTransactionData struct {
-	Vin       string           `json:"vin"`
-	TypedData signer.TypedData `json:"typedData"`
-	Signature hexutil.Bytes    `json:"signature,omitempty"`
+	Vin       string            `json:"vin"`
+	TypedData *signer.TypedData `json:"typedData,omitempty"`
+	Signature hexutil.Bytes     `json:"signature,omitempty"`
 }
 
 type MintDataForVins struct {
@@ -763,6 +793,28 @@ func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
 			})
 		}
 
+		mintedVins, err := v.vs.GetVehiclesByVinsAndOnboardingStatus(
+			c.Context(),
+			validVins,
+			onboarding.OnboardingStatusMintSuccess,
+		)
+		if err != nil {
+			if !errors.Is(err, service.ErrVehicleNotFound) {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to load vehicles from Database",
+				})
+			}
+		}
+
+		vendorFailedMintedVins := make(dbmodels.VinSlice, 0, len(mintedVins))
+		for _, vin := range mintedVins {
+			if vin.ConnectionStatus.String == "failed" {
+				vendorFailedMintedVins = append(vendorFailedMintedVins, vin)
+			}
+		}
+
+		dbVins = append(dbVins, vendorFailedMintedVins...)
+
 		indexedDbVins := make(map[string]*dbmodels.Vin)
 		for _, vin := range dbVins {
 			indexedDbVins[vin.Vin] = vin
@@ -777,6 +829,17 @@ func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
 				}
 			}
 
+			var sacd *onboarding.OnboardingSacd
+
+			if params.Sacd.Expiration != 0 && params.Sacd.Permissions != 0 {
+				sacd = &onboarding.OnboardingSacd{
+					Grantee:     params.Sacd.Grantee,
+					Expiration:  new(big.Int).SetInt64(params.Sacd.Expiration),
+					Permissions: new(big.Int).SetInt64(params.Sacd.Permissions),
+					Source:      params.Sacd.Source,
+				}
+			}
+
 			if v.canSubmitMintingJob(dbVin) {
 				localLog.Debug().Str(logfields.VIN, mint.Vin).Msg("Submitting minting job")
 				_, err = v.riverClient.Insert(c.Context(), onboarding.OnboardingArgs{
@@ -784,6 +847,7 @@ func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
 					TypedData: mint.TypedData,
 					Signature: mint.Signature,
 					Owner:     walletAddress,
+					Sacd:      sacd,
 				}, nil)
 
 				if err != nil {
@@ -856,7 +920,7 @@ func (v *VehicleController) getValidatedMintingData(data *VinTransactionData, _ 
 	//}
 
 	// Validate typed data with device definition (if applicable)
-	if data.TypedData.PrimaryType == "MintVehicleWithDeviceDefinitionSign" {
+	if data.TypedData != nil && data.TypedData.PrimaryType == "MintVehicleWithDeviceDefinitionSign" {
 		_, err := v.identity.GetDeviceDefinitionByID(data.TypedData.Message["deviceDefinitionId"].(string))
 		if err != nil {
 			return nil, err
@@ -879,9 +943,10 @@ func (v *VehicleController) canSubmitMintingJob(record *dbmodels.Vin) bool {
 	minted := onboarding.IsMinted(record.OnboardingStatus)
 	burned := onboarding.IsDisconnected(record.OnboardingStatus)
 	failed := onboarding.IsFailure(record.OnboardingStatus)
+	failedConnection := record.ConnectionStatus.String == "failed"
 	pending := onboarding.IsMintPending(record.OnboardingStatus) || onboarding.IsDisconnectPending(record.OnboardingStatus)
 
-	return (!minted || burned) && (failed || !pending)
+	return (minted && failedConnection) || (!minted || burned) && (failed || !pending)
 }
 
 func (v *VehicleController) GetMintStatusForVins(c *fiber.Ctx) error {
@@ -1238,10 +1303,10 @@ func (v *VehicleController) canSubmitDisconnectJob(record *dbmodels.Vin) bool {
 	}
 
 	minted := onboarding.IsMinted(record.OnboardingStatus)
-	failed := onboarding.IsFailure(record.OnboardingStatus)
+	failed := onboarding.IsDisconnectFailed(record.OnboardingStatus)
 	pending := onboarding.IsDisconnectPending(record.OnboardingStatus)
 
-	return minted && (failed || !pending)
+	return (minted || failed) && !pending
 }
 
 func (v *VehicleController) GetDisconnectStatusForVins(c *fiber.Ctx) error {

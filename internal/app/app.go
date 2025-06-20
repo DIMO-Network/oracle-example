@@ -77,6 +77,13 @@ func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle,
 	// submits the passkey signed disconnecting payload to the backend
 	app.Post("/v1/vehicle/disconnect", jwtAuth, vehiclesCtrl.SubmitDisconnectDataForVins)
 
+	// gets vehicle deletion status
+	app.Get("/v1/vehicle/delete/status", jwtAuth, vehiclesCtrl.GetDeleteStatusForVins)
+	// gets the payload to be signed for deleting a vehicle by the frontend (using passkey)
+	app.Get("/v1/vehicle/delete", jwtAuth, vehiclesCtrl.GetDeleteDataForVins)
+	// submits the passkey signed delete vehicle payload to the backend
+	app.Post("/v1/vehicle/delete", jwtAuth, vehiclesCtrl.SubmitDeleteDataForVins)
+
 	// get a specific vehicle by ID (could be VIN or whatever identifier)
 	app.Get("/v1/vehicle/:externalID", jwtAuth, vehiclesCtrl.GetVehicleByExternalID)
 	// submits vehicles to be registered by the backend

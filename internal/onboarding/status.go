@@ -37,7 +37,7 @@ const (
 	OnboardingStatusMintFailure = 52
 	OnboardingStatusMintSuccess = 53
 
-	// 60-69 disconnect submission
+	// 60-63 disconnect submission
 	OnboardingStatusDisconnectSubmitUnknown = 60
 	OnboardingStatusDisconnectSubmitPending = 61
 	OnboardingStatusDisconnectSubmitFailure = 62
@@ -52,6 +52,18 @@ const (
 	OnboardingStatusBurnSDPending = 81
 	OnboardingStatusBurnSDFailure = 82
 	OnboardingStatusBurnSDSuccess = 83
+
+	// 90-93 delete submission
+	OnboardingStatusDeleteSubmitUnknown = 90
+	OnboardingStatusDeleteSubmitPending = 91
+	OnboardingStatusDeleteSubmitFailure = 92
+	OnboardingStatusDeleteSubmitSuccess = 93
+
+	// 100-103 vehicle burn
+	OnboardingStatusBurnVehicleUnknown = 100
+	OnboardingStatusBurnVehiclePending = 101
+	OnboardingStatusBurnVehicleFailure = 102
+	OnboardingStatusBurnVehicleSuccess = 103
 )
 
 var statusToString = map[int]string{
@@ -91,6 +103,14 @@ var statusToString = map[int]string{
 	OnboardingStatusBurnSDPending:           "BurnSDPending",
 	OnboardingStatusBurnSDFailure:           "BurnSDFailure",
 	OnboardingStatusBurnSDSuccess:           "BurnSDSuccess",
+	OnboardingStatusDeleteSubmitUnknown:     "DeleteSubmitUnknown",
+	OnboardingStatusDeleteSubmitPending:     "DeleteSubmitPending",
+	OnboardingStatusDeleteSubmitFailure:     "DeleteSubmitFailure",
+	OnboardingStatusDeleteSubmitSuccess:     "DeleteSubmitSuccess",
+	OnboardingStatusBurnVehicleUnknown:      "BurnVehicleUnknown",
+	OnboardingStatusBurnVehiclePending:      "BurnVehiclePending",
+	OnboardingStatusBurnVehicleFailure:      "BurnVehicleFailure",
+	OnboardingStatusBurnVehicleSuccess:      "BurnVehicleSuccess",
 }
 
 func IsVerified(status int) bool {
@@ -118,7 +138,15 @@ func IsMintPending(status int) bool {
 }
 
 func IsDisconnectPending(status int) bool {
-	return status > OnboardingStatusDisconnectSubmitUnknown && status < OnboardingStatusBurnSDSuccess
+	return (status > OnboardingStatusDisconnectSubmitUnknown && status < OnboardingStatusBurnSDSuccess) && !IsFailure(status)
+}
+
+func IsDisconnectFailed(status int) bool {
+	return status == OnboardingStatusDisconnectSubmitFailure || status == OnboardingStatusBurnSDFailure || status == OnboardingStatusDisconnectFailure
+}
+
+func IsBurnPending(status int) bool {
+	return status > OnboardingStatusDeleteSubmitUnknown && status < OnboardingStatusBurnVehicleSuccess
 }
 
 func GetVerificationStatus(status int) string {
@@ -163,6 +191,22 @@ func GetDisconnectStatus(status int) string {
 	}
 
 	if IsDisconnectPending(status) {
+		return "Pending"
+	}
+
+	return "Unknown"
+}
+
+func GetBurnStatus(status int) string {
+	if status == OnboardingStatusBurnVehicleSuccess {
+		return "Success"
+	}
+
+	if IsFailure(status) {
+		return "Failure"
+	}
+
+	if IsBurnPending(status) {
 		return "Pending"
 	}
 
