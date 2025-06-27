@@ -2,7 +2,7 @@ replicaCount: 1
 image:
   repository: dimozone/oracle-example
   pullPolicy: IfNotPresent
-  tag: 0.7.0
+  tag: 76bfa3d
 imagePullSecrets: []
 nameOverride: ''
 fullnameOverride: ''
