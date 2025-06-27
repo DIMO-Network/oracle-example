@@ -35,7 +35,10 @@ func NewAccessMiddleware(access *service.Access) fiber.Handler {
 			}
 		}
 
-		return c.SendStatus(fiber.StatusForbidden)
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":  "Wallet does not have access.",
+			"wallet": walletAddress.String(),
+		})
 	}
 }
 
