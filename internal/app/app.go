@@ -17,7 +17,7 @@ import (
 	"strconv"
 )
 
-func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle, riverClient *river.Client[pgx.Tx], ws service.SDWalletsAPI, tr *transactions.Client) *fiber.App {
+func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle, riverClient *river.Client[pgx.Tx], ws service.SDWalletsAPI, tr *transactions.Client, acc *service.Access) *fiber.App {
 	if tr == nil {
 		logger.Fatal().Err(errors.New("tr transactions.Client is nil"))
 	}
@@ -51,43 +51,47 @@ func App(settings *config.Settings, logger *zerolog.Logger, db *service.Vehicle,
 	identityService := service.NewIdentityAPIService(*logger, *settings)
 	vehiclesCtrl := controllers.NewVehiclesController(settings, logger, identityService, db, riverClient, ws, tr)
 
+	accessCtrl := controllers.NewAccessController()
+
 	// assumes frontend has used Login With DIMO and has a JWT from DIMO.
 	jwtAuth := jwtware.New(jwtware.Config{
 		JWKSetURLs: []string{settings.JwtKeySetURL},
 	})
 	// get all vehicles in the database for frontend
-	app.Get("/v1/vehicles", jwtAuth, vehiclesCtrl.GetVehicles)
+	accessCheck := NewAccessMiddleware(acc)
+
+	app.Get("/v1/access", jwtAuth, accessCheck, accessCtrl.CheckAccess)
 
 	// gets verification (VIN decoding and vendor support check) statuses
-	app.Get("/v1/vehicle/verify", jwtAuth, vehiclesCtrl.GetVerificationStatusForVins)
+	app.Get("/v1/vehicle/verify", jwtAuth, accessCheck, vehiclesCtrl.GetVerificationStatusForVins)
 	// handles decoding the VIN to be onboarded and checking if the vendor supports this VIN. Optional.
-	app.Post("/v1/vehicle/verify", jwtAuth, vehiclesCtrl.SubmitVerificationForVins)
+	app.Post("/v1/vehicle/verify", jwtAuth, accessCheck, vehiclesCtrl.SubmitVerificationForVins)
 
 	// gets minting status
-	app.Get("/v1/vehicle/mint/status", jwtAuth, vehiclesCtrl.GetMintStatusForVins)
+	app.Get("/v1/vehicle/mint/status", jwtAuth, accessCheck, vehiclesCtrl.GetMintStatusForVins)
 	// gets the payload to be signed for minting by the frontend (using passkey)
-	app.Get("/v1/vehicle/mint", jwtAuth, vehiclesCtrl.GetMintDataForVins)
+	app.Get("/v1/vehicle/mint", jwtAuth, accessCheck, vehiclesCtrl.GetMintDataForVins)
 	// submits the passkey signed minting payload to the backend
-	app.Post("/v1/vehicle/mint", jwtAuth, vehiclesCtrl.SubmitMintDataForVins)
+	app.Post("/v1/vehicle/mint", jwtAuth, accessCheck, vehiclesCtrl.SubmitMintDataForVins)
 
 	// gets disconnection status
-	app.Get("/v1/vehicle/disconnect/status", jwtAuth, vehiclesCtrl.GetDisconnectStatusForVins)
+	app.Get("/v1/vehicle/disconnect/status", jwtAuth, accessCheck, vehiclesCtrl.GetDisconnectStatusForVins)
 	// gets the payload to be signed for disconnecting by the frontend (using passkey)
-	app.Get("/v1/vehicle/disconnect", jwtAuth, vehiclesCtrl.GetDisconnectDataForVins)
+	app.Get("/v1/vehicle/disconnect", jwtAuth, accessCheck, vehiclesCtrl.GetDisconnectDataForVins)
 	// submits the passkey signed disconnecting payload to the backend
-	app.Post("/v1/vehicle/disconnect", jwtAuth, vehiclesCtrl.SubmitDisconnectDataForVins)
+	app.Post("/v1/vehicle/disconnect", jwtAuth, accessCheck, vehiclesCtrl.SubmitDisconnectDataForVins)
 
 	// gets vehicle deletion status
-	app.Get("/v1/vehicle/delete/status", jwtAuth, vehiclesCtrl.GetDeleteStatusForVins)
+	app.Get("/v1/vehicle/delete/status", jwtAuth, accessCheck, vehiclesCtrl.GetDeleteStatusForVins)
 	// gets the payload to be signed for deleting a vehicle by the frontend (using passkey)
-	app.Get("/v1/vehicle/delete", jwtAuth, vehiclesCtrl.GetDeleteDataForVins)
+	app.Get("/v1/vehicle/delete", jwtAuth, accessCheck, vehiclesCtrl.GetDeleteDataForVins)
 	// submits the passkey signed delete vehicle payload to the backend
-	app.Post("/v1/vehicle/delete", jwtAuth, vehiclesCtrl.SubmitDeleteDataForVins)
+	app.Post("/v1/vehicle/delete", jwtAuth, accessCheck, vehiclesCtrl.SubmitDeleteDataForVins)
 
 	// get a specific vehicle by ID (could be VIN or whatever identifier)
-	app.Get("/v1/vehicle/:externalID", jwtAuth, vehiclesCtrl.GetVehicleByExternalID)
+	app.Get("/v1/vehicle/:externalID", jwtAuth, accessCheck, vehiclesCtrl.GetVehicleByExternalID)
 	// submits vehicles to be registered by the backend
-	app.Post("/v1/vehicle/register", jwtAuth, vehiclesCtrl.RegisterVehicle)
+	app.Post("/v1/vehicle/register", jwtAuth, accessCheck, vehiclesCtrl.RegisterVehicle)
 
 	return app
 }

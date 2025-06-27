@@ -78,6 +78,7 @@ func main() {
 	monApp := createMonitoringServer()
 	group, gCtx := errgroup.WithContext(ctx)
 	vehicleService := service.NewVehicleService(&pdb, &logger)
+	accessService := service.NewAccessService(&pdb, &logger)
 	identityService := service.NewIdentityAPIService(logger, settings)
 	deviceDefinitionsService := service.NewDeviceDefinitionsAPIService(logger, settings)
 	oracleService, err := service.NewOracleService(ctx, logger, settings, vehicleService)
@@ -96,7 +97,7 @@ func main() {
 
 	runRiver(gCtx, logger, riverClient, group)
 
-	webAPI := app.App(&settings, &logger, vehicleService, riverClient, walletService, transactionsClient)
+	webAPI := app.App(&settings, &logger, vehicleService, riverClient, walletService, transactionsClient, accessService)
 
 	// start the Web Api
 	logger.Info().Str("port", settings.MonitoringPort).Msgf("Starting monitoring server %s", settings.MonitoringPort)

@@ -8,6 +8,7 @@ import (
 	"github.com/DIMO-Network/oracle-example/internal/onboarding"
 	"github.com/DIMO-Network/oracle-example/internal/service"
 	"github.com/DIMO-Network/shared/pkg/logfields"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/friendsofgo/errors"
 	"github.com/gofiber/fiber/v2"
 	"math/big"
@@ -27,12 +28,7 @@ func (v *VehicleController) GetDeleteDataForVins(c *fiber.Ctx) error {
 		})
 	}
 
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	localLog := v.logger.With().Interface("vins", params.Vins).Str(logfields.FunctionName, "GetDeleteDataForVins").Logger()
 	localLog.Debug().Msg("Getting deletion data for Vins")
@@ -144,12 +140,7 @@ func (v *VehicleController) GetDeleteDataForVins(c *fiber.Ctx) error {
 }
 
 func (v *VehicleController) SubmitDeleteDataForVins(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	params := new(DeleteDataForVins)
 	if err := c.BodyParser(params); err != nil {
