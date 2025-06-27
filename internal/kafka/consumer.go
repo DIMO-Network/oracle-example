@@ -43,6 +43,11 @@ func (h MessageHandlerOperations) Cleanup(_ sarama.ConsumerGroupSession) error {
 	return nil
 }
 
+const (
+	initialRetryInterval = 5 * time.Second // Initial retry interval
+	maxRetryInterval     = 1 * time.Minute // Maximum retry interval
+)
+
 func SetupKafkaConsumer(
 	ctx context.Context,
 	logger *zerolog.Logger,
@@ -68,12 +73,21 @@ func SetupKafkaConsumer(
 
 	// Context for consumer
 	go func() {
+		retryInterval := initialRetryInterval
 		for {
-			err := consumer.Consume(ctx, []string{topic}, handler)
-			if err != nil {
-				logger.Error().Err(err).Msg("Error consuming messages from Kafka")
-				return
+			// Retry with exponential backoff
+			if err := consumer.Consume(ctx, []string{topic}, handler); err != nil {
+				logger.Error().Err(err).Msg("Error consuming messages from Kafka, retrying...")
+				time.Sleep(retryInterval)
+				retryInterval *= 2
+				if retryInterval > maxRetryInterval {
+					retryInterval = maxRetryInterval
+				}
+				continue
 			}
+
+			// Reset retry interval on success
+			retryInterval = initialRetryInterval
 
 			if ctx.Err() != nil {
 				// Exit loop if context is canceled

@@ -7,28 +7,26 @@ import (
 	registry "github.com/DIMO-Network/go-transactions/contracts"
 	"github.com/DIMO-Network/go-zerodev"
 	"github.com/DIMO-Network/oracle-example/internal/config"
-	"github.com/DIMO-Network/oracle-example/internal/kafka"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	signer "github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"math/big"
-	"strconv"
-
 	dbmodels "github.com/DIMO-Network/oracle-example/internal/db/models"
+	"github.com/DIMO-Network/oracle-example/internal/kafka"
 	"github.com/DIMO-Network/oracle-example/internal/models"
 	"github.com/DIMO-Network/oracle-example/internal/onboarding"
 	"github.com/DIMO-Network/oracle-example/internal/service"
 	"github.com/DIMO-Network/shared/pkg/logfields"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	signer "github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/riverqueue/river"
 	"github.com/rs/zerolog"
 	"github.com/tidwall/gjson"
 	"github.com/volatiletech/null/v8"
+	"math/big"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -56,16 +54,6 @@ func NewVehiclesController(settings *config.Settings, logger *zerolog.Logger, id
 	}
 }
 
-func getWalletAddress(c *fiber.Ctx) (common.Address, error) {
-	user := c.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-	address, ok := claims["ethereum_address"].(string)
-	if !ok {
-		return common.Address{}, errors.New("wallet_address not found in claims")
-	}
-	return common.HexToAddress(address), nil
-}
-
 // GetVehicles
 // @Summary Get user's vehicles
 // @Description Get user's vehicles from Identity API and add external ID (VIN)
@@ -74,12 +62,7 @@ func getWalletAddress(c *fiber.Ctx) (common.Address, error) {
 // @Security     BearerAuth
 // @Router /v1/vehicles [get]
 func (v *VehicleController) GetVehicles(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	identityVehicles, err := (v.identity).FetchVehiclesByWalletAddress(walletAddress.String())
 	if err != nil {
@@ -139,12 +122,7 @@ type VehiclesResponse struct {
 // @Router /v1/vehicle/{externalID} [get]
 func (v *VehicleController) GetVehicleByExternalID(c *fiber.Ctx) error {
 	externalID := c.Params("externalID")
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	identityVehicles, err := (v.identity).FetchVehiclesByWalletAddress(walletAddress.String())
 	if err != nil {
@@ -198,12 +176,7 @@ type VehicleResponse struct {
 // @Security     BearerAuth
 // @Router /v1/vehicle/register [post]
 func (v *VehicleController) RegisterVehicle(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	vinToRegister := gjson.GetBytes(c.Body(), "vin")
 	tokenIDToRegister := gjson.GetBytes(c.Body(), "token_id")
@@ -535,12 +508,7 @@ type StatusForVinsResponse struct {
 }
 
 func (v *VehicleController) GetMintDataForVins(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	params := new(VinsGetParams)
 	if err := c.QueryParser(params); err != nil {
@@ -733,12 +701,7 @@ type DisconnectDataForVins struct {
 }
 
 func (v *VehicleController) SubmitMintDataForVins(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	params := new(MintDataForVins)
 	if err := c.BodyParser(params); err != nil {
@@ -1039,12 +1002,7 @@ func (v *VehicleController) GetDisconnectDataForVins(c *fiber.Ctx) error {
 		})
 	}
 
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	localLog := v.logger.With().Interface("vins", params.Vins).Str(logfields.FunctionName, "GetDisconnectDataForVins").Logger()
 	localLog.Debug().Msg("Getting disconnection data for Vins")
@@ -1156,12 +1114,7 @@ func (v *VehicleController) GetDisconnectDataForVins(c *fiber.Ctx) error {
 }
 
 func (v *VehicleController) SubmitDisconnectDataForVins(c *fiber.Ctx) error {
-	walletAddress, err := getWalletAddress(c)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to get wallet address",
-		})
-	}
+	walletAddress := c.Locals("wallet").(common.Address)
 
 	params := new(DisconnectDataForVins)
 	if err := c.BodyParser(params); err != nil {
