@@ -43,7 +43,7 @@ or require the user to input something specific to that vehicle or PIN code etc.
 
 1. Register an account on https://console.dimo.org/ 
 2. Generate an API key and add your preferred redirect URI
-3. Create your Connection License. In the future this will be in the dev console but for now provide your ClientID to your developer relations person at DIMO.
+3. Create your Connection License via the console. Once created, provide your public Client ID to someone at DIMO.
 4. Obtain the required Synthetic Device Minting roles - engineers at DIMO will do this for you.
 5. Create an Account Abstracted wallet with zerodev, we'll call this the Developer AA Wallet - engineers at DIMO can do this for you. Future state will be in Console.
 6. Fund your Developer AA Wallet with some DCX. You can do this from the DIMO Dev Console. Required for the minting operations.
